@@ -702,6 +702,8 @@ tr.row-expanded td{background:#F0F6FF!important;}
     <div class="cont-toolbar" style="flex-wrap:wrap;gap:6px;padding:10px 16px;">
       <span style="font-size:14px;font-weight:700;color:var(--brand-dark);">📅 Cronograma Anual 2026</span>
       <span style="flex:1"></span>
+      <button id="btn-anual-add-row" title="Adicionar linha manualmente na aba atual" style="padding:6px 13px;background:#2D6CDF;color:#fff;border:none;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">➕ Adicionar linha</button>
+      <button id="btn-anual-import" title="Importar planilha XLSX para substituir dados desta aba" style="padding:6px 13px;background:#fff;color:#2D6CDF;border:1px solid #2D6CDF;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">📥 Importar planilha</button>
       <input type="text" id="anual-search" placeholder="Buscar empresa..." style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:220px;">
     </div>
     <!-- TABS das planilhas -->
@@ -4615,6 +4617,7 @@ tryRestoreSession();
 </script>
 
 <input type="file" id="anual-file-input" accept=".pdf" style="display:none;">
+<input type="file" id="anual-xlsx-input" accept=".xlsx,.xls,.ods,.csv" style="display:none;">
 
 <script>
 // =================== CRONOGRAMA ANUAL DATA ===================
@@ -4942,6 +4945,233 @@ const ANUAL_DATA = {"DIRF": [{"cod": "334.0", "nome": "45168841 MILENA AGOSTINHO
       return;
     }
   }, true);
+
+  /* ---- Adicionar linha manualmente ---- */
+  // Linhas manuais ficam em anual_edits sob a chave especial '__manual__'
+  // Cada linha manual tem índice negativo: -1, -2, -3...
+  function getAnualManualRows(tab) {
+    const allEdits = loadAnualEdits();
+    return (allEdits[tab] && allEdits[tab]['__manual__']) ? allEdits[tab]['__manual__'] : [];
+  }
+  function saveAnualManualRows(tab, rows) {
+    const allEdits = loadAnualEdits();
+    if (!allEdits[tab]) allEdits[tab] = {};
+    allEdits[tab]['__manual__'] = rows;
+    saveAnualEdits(allEdits);
+  }
+
+  // Patch renderAnual to also show manual rows
+  const _origRenderAnual = window.renderAnual;
+  window.renderAnual = function renderAnualPatched() {
+    _origRenderAnual();
+
+    const tab = anualCurrentTab;
+    const manualRows = getAnualManualRows(tab);
+    if (!manualRows.length) return;
+
+    const cols = ANUAL_COLS[tab] || [];
+    const tbody = document.getElementById('anual-tbody');
+    const recibos = loadAnualRecibos();
+    const tabRecibos = recibos[tab] || {};
+    function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    // Add actions column header
+    const theadRow = document.querySelector('#anual-thead tr');
+    if (theadRow && !theadRow.querySelector('th[data-anual-actions]')) {
+      const th = document.createElement('th');
+      th.setAttribute('data-anual-actions','1');
+      th.style.cssText = 'padding:8px 10px;background:#f0f4f8;font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap;border-bottom:2px solid var(--border);letter-spacing:.3px;text-align:left;position:relative;';
+      th.textContent = '';
+      theadRow.appendChild(th);
+    }
+    // Add empty td to normal rows for column alignment
+    tbody.querySelectorAll('tr:not([data-manual-padded])').forEach(tr => {
+      tr.setAttribute('data-manual-padded','1');
+      const td = document.createElement('td');
+      td.style.cssText = 'padding:3px 5px;';
+      tr.appendChild(td);
+    });
+
+    // Hide empty message if we have manual rows
+    document.getElementById('anual-empty').style.display = 'none';
+
+    const extraHtml = manualRows.map((row, mi) => {
+      const negIdx = -(mi + 1); // -1, -2, ...
+      return '<tr style="border-bottom:1px solid #f0f0f0;background:#fafff5;">' + cols.map(c => {
+        if (c.isRecibo) {
+          const rk = c.reciboKey || 'default';
+          const recData = (tabRecibos[negIdx] || {})[rk];
+          if (recData) {
+            return `<td style="padding:5px 8px;white-space:nowrap;">
+              <a href="${recData.url}" target="_blank" class="anual-recibo-btn has-file" title="${esc(recData.name)}">📎 ${recData.name.length>18?recData.name.slice(0,16)+'…':esc(recData.name)}</a>
+              <button class="anual-recibo-btn" style="color:var(--danger);border-color:var(--danger);margin-left:3px;" data-anual-del="${negIdx}" data-anual-rk="${rk}" title="Remover recibo">✕</button>
+            </td>`;
+          }
+          return `<td style="padding:5px 8px;white-space:nowrap;"><button class="anual-recibo-btn" data-anual-attach="${negIdx}" data-anual-rk="${rk}" title="Anexar PDF">📎 Anexar</button></td>`;
+        }
+        const val = row[c.key] !== undefined ? row[c.key] : '';
+        const display = (val === 'nan' || val === 'None') ? '' : val;
+        const isTempoCol = c.key === 'tempo';
+        return `<td style="padding:3px 5px;white-space:nowrap;">
+          <input class="cont-inp anual-edit-inp anual-manual-inp" data-anual-manual-idx="${mi}" data-anual-key="${esc(c.key)}"
+            value="${esc(display)}" style="min-width:${isTempoCol?'80px':'100px'};max-width:200px;font-size:11px;padding:3px 6px;background:#f5fff0;" title="${esc(display)}"${isTempoCol?' placeholder="00:30" oninput="applyTimeMaskLive(this)"':''}>
+        </td>`;
+      }).join('') + `<td style="padding:3px 5px;"><button class="anual-recibo-btn" style="color:var(--danger);border-color:var(--danger);" data-anual-del-manual="${mi}" title="Remover linha">🗑</button></td></tr>`;
+    }).join('');
+
+    tbody.insertAdjacentHTML('beforeend', extraHtml);
+
+    // Manual row edit handlers
+    tbody.querySelectorAll('.anual-manual-inp').forEach(inp => {
+      const handler = function() {
+        const mi = parseInt(this.dataset.anualManualIdx);
+        const key = this.dataset.anualKey;
+        if (key === 'tempo') this.value = normalizeTempo(this.value);
+        const rows2 = getAnualManualRows(tab);
+        if (!rows2[mi]) rows2[mi] = {};
+        rows2[mi][key] = this.value;
+        saveAnualManualRows(tab, rows2);
+        if (key === 'tempo') {
+          timeSyncFromAnual(tab, -(mi+1), rows2[mi], this.value);
+          timeRefreshUI();
+        }
+      };
+      inp.addEventListener('change', handler);
+      inp.addEventListener('blur', handler);
+    });
+
+    // Delete manual row
+    tbody.querySelectorAll('[data-anual-del-manual]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const mi = parseInt(this.dataset.anualDelManual);
+        const rows2 = getAnualManualRows(tab);
+        rows2.splice(mi, 1);
+        saveAnualManualRows(tab, rows2);
+        renderAnual();
+      });
+    });
+
+    // Attach / delete recibo for manual rows (negative idx)
+    tbody.querySelectorAll('[data-anual-attach]').forEach(btn => {
+      const idx = parseInt(btn.dataset.anualAttach);
+      if (idx >= 0) return; // already handled by original
+      btn.addEventListener('click', function() {
+        const rk = this.dataset.anualRk || 'default';
+        const inp2 = document.getElementById('anual-file-input');
+        inp2.onchange = function() {
+          if (!inp2.files.length) return;
+          const file = inp2.files[0];
+          const reader = new FileReader();
+          reader.onload = function(ev) {
+            const recibos2 = loadAnualRecibos();
+            if (!recibos2[tab]) recibos2[tab] = {};
+            if (!recibos2[tab][idx]) recibos2[tab][idx] = {};
+            recibos2[tab][idx][rk] = {name: file.name, url: ev.target.result, type: file.type};
+            saveAnualRecibos(recibos2);
+            renderAnual();
+          };
+          reader.readAsDataURL(file);
+          inp2.value = '';
+        };
+        inp2.click();
+      });
+    });
+  };
+
+  document.getElementById('btn-anual-add-row').addEventListener('click', function() {
+    const tab = anualCurrentTab;
+    const rows2 = getAnualManualRows(tab);
+    rows2.push({});
+    saveAnualManualRows(tab, rows2);
+    renderAnual();
+    // Scroll to bottom of table
+    const wrap = document.getElementById('anual-table-wrap');
+    if (wrap) wrap.scrollTop = wrap.scrollHeight;
+  });
+
+  /* ---- Importar planilha XLSX para aba atual ---- */
+  document.getElementById('btn-anual-import').addEventListener('click', function() {
+    const tab = anualCurrentTab;
+    if (!confirm(`Importar planilha para substituir os dados da aba "${tab}"?\n\nA primeira linha deve ser o cabeçalho com os nomes das colunas.\nAs linhas existentes serão substituídas pelos dados da planilha importada.\n\nDeseja continuar?`)) return;
+    const inp = document.getElementById('anual-xlsx-input');
+    inp.onchange = function() {
+      if (!inp.files.length) return;
+      const file = inp.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const wb = XLSX.read(e.target.result, {type:'binary', cellDates:true});
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const raw = XLSX.utils.sheet_to_json(ws, {defval:'', raw:false});
+          if (!raw.length) { alert('Planilha vazia ou sem dados reconhecíveis.'); return; }
+
+          // Normalise keys: lowercase + trim
+          const normKey = k => k.toLowerCase().replace(/\s+/g,'_').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+          const newRows = raw.map(r => {
+            const obj = {};
+            Object.keys(r).forEach(k => { obj[normKey(k)] = r[k]; });
+            return obj;
+          });
+
+          // Replace in ANUAL_DATA
+          ANUAL_DATA[tab] = newRows;
+          // Clear existing edits for this tab (optional — keep manual rows)
+          const allEdits = loadAnualEdits();
+          if (allEdits[tab]) {
+            const manual = allEdits[tab]['__manual__'];
+            allEdits[tab] = {};
+            if (manual && manual.length) allEdits[tab]['__manual__'] = manual;
+            saveAnualEdits(allEdits);
+          }
+          // Persist imported data in localStorage so it survives refresh
+          try {
+            const stored = JSON.parse(localStorage.getItem('cw_anual_imported_v1') || '{}');
+            stored[tab] = newRows;
+            localStorage.setItem('cw_anual_imported_v1', JSON.stringify(stored));
+            if (window._fbDb) {
+              fbSet('cronograma/anual_imported/' + tab, newRows).catch(err => console.warn('FB anualImport:', err));
+            }
+          } catch(ex) { console.warn('Erro ao persistir importação:', ex); }
+
+          renderAnual();
+          alert(`✅ ${newRows.length} linha(s) importada(s) para a aba "${tab}".`);
+        } catch(err) {
+          console.error(err);
+          alert('Erro ao ler a planilha: ' + err.message);
+        }
+      };
+      reader.readAsBinaryString(file);
+      inp.value = '';
+    };
+    inp.click();
+  });
+
+  // Restore imported data on page load (from localStorage / Firebase)
+  (function restoreImported() {
+    // From localStorage
+    try {
+      const stored = JSON.parse(localStorage.getItem('cw_anual_imported_v1') || '{}');
+      Object.keys(stored).forEach(tab => {
+        if (stored[tab] && stored[tab].length) ANUAL_DATA[tab] = stored[tab];
+      });
+    } catch(e) {}
+    // From Firebase (async)
+    if (window._fbDb) {
+      fbGet('cronograma/anual_imported').then(v => {
+        if (!v) return;
+        Object.keys(v).forEach(tab => {
+          if (v[tab] && v[tab].length) {
+            ANUAL_DATA[tab] = v[tab];
+            try {
+              const stored2 = JSON.parse(localStorage.getItem('cw_anual_imported_v1') || '{}');
+              stored2[tab] = v[tab];
+              localStorage.setItem('cw_anual_imported_v1', JSON.stringify(stored2));
+            } catch(e) {}
+          }
+        });
+      }).catch(e => console.warn('FB restoreImported:', e));
+    }
+  })();
 
   /* ---- Resize de colunas ANUAL ---- */
   (function(){
