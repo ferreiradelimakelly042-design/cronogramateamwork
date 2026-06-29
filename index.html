@@ -1545,8 +1545,7 @@ function onFilterChange(){
   state.page=1;renderTable();renderStats();
 }
 function getBaseRows(){
-  if(state.currentUser.role==='admin') return state.data;
-  return state.data.filter(r=>isResponsavel(r,state.currentUser));
+  return state.data;
 }
 function getFilteredRows(){
   const f=state.filters;
@@ -1619,7 +1618,7 @@ function cellHTML(row,col){
   }
   if(!editable)return`<span class="cell-readonly" title="${esc(value)}">${esc(value)}</span>`;
   if(col.key==='tempo')
-    return`<input type="text" class="cell-input" value="${esc(value)}" title="${esc(value)}" placeholder="00:00" oninput="applyTimeMaskLive(this)" ${dataAttrs}>`;
+    return`<input type="text" class="cell-input" value="${esc(value)}" title="${esc(value)}" placeholder="00:50" ${dataAttrs}>`;
   return`<input type="text" class="cell-input" value="${esc(value)}" title="${esc(value)}" ${dataAttrs}>`;
 }
 function colWidth(key){return state.colWidths[key]||COL_WIDTH_DEFAULTS[key]||90;}
