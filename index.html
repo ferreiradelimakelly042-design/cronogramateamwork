@@ -154,6 +154,8 @@ input,select,button{font-family:inherit;}
 .filters input[type=text],.filters select{padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;}
 .filters input[type=text]{min-width:200px;}
 .filters .clear{font-size:12px;color:var(--accent);cursor:pointer;text-decoration:underline;}
+.cont-filters .clear,.time-filters .clear{font-size:12px;color:var(--accent);cursor:pointer;text-decoration:underline;}
+.clear{font-size:12px;color:var(--accent);cursor:pointer;text-decoration:underline;}
 
 /* ---- Table ---- */
 .table-wrap{margin:14px 20px;border:1px solid var(--border);border-radius:10px;overflow:auto;background:#fff;max-height:65vh;}
@@ -492,7 +494,7 @@ tr.row-expanded td{background:#F0F6FF!important;}
       <select id="cont-freq"><option value="">Frequência</option></select>
       <select id="cont-trib"><option value="">Regime</option></select>
       <select id="cont-resp"><option value="">Resp. (todos)</option></select>
-      <span class="clear" id="cont-clear">limpar</span>
+      <span class="clear" id="cont-clear">limpar filtros</span>
     </div>
     <div class="cont-wrap" id="cont-wrap"></div>
     <div class="pagination" id="cont-pagination"></div>
@@ -656,24 +658,32 @@ tr.row-expanded td{background:#F0F6FF!important;}
        MÓDULO RECIBOS
        ========================================================= -->
   <div id="mod-recibos" style="display:none;">
-    <div class="cont-toolbar">
-      <button class="btn btn-green" id="btn-recibo-import-xlsx">📂 Importar planilha de recibos (.xlsx)</button>
-      <button class="btn btn-secondary" id="btn-recibo-attach">📎 Anexar recibo (PDF)</button>
+    <!-- Linha 1: título + ações principais (padrão ANUAL) -->
+    <div class="cont-toolbar" style="flex-wrap:wrap;gap:6px;padding:10px 16px;">
+      <span style="font-size:14px;font-weight:700;color:var(--brand-dark);">🧾 Recibos</span>
       <span style="flex:1"></span>
+      <button id="btn-recibo-add-row" title="Adicionar linha manualmente na aba ativa" style="padding:6px 13px;background:#2D6CDF;color:#fff;border:none;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">➕ Adicionar linha</button>
+      <button id="btn-recibo-import-xlsx" title="Importar planilha de recibos (.xlsx)" style="padding:6px 13px;background:#fff;color:#2D6CDF;border:1px solid #2D6CDF;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">📥 Importar planilha</button>
       <input type="text" id="recibo-search" placeholder="Buscar empresa..." style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:220px;">
-      <select id="recibo-aba" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+    </div>
+    <!-- Linha 2: filtros + anexar PDF (padrão ANUAL tabs-nav) -->
+    <div style="display:flex;align-items:center;gap:6px;padding:7px 16px;border-bottom:2px solid var(--border);background:#f8f9fb;flex-wrap:wrap;">
+      <button id="btn-recibo-attach" style="padding:5px 13px;background:#fff;color:#374151;border:1px solid var(--border);border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">📎 Anexar recibo (PDF)</button>
+      <span style="flex:1"></span>
+      <select id="recibo-aba" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;">
         <option value="">Obrigação (todas)</option>
       </select>
-      <select id="recibo-status-filter" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+      <select id="recibo-status-filter" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;">
         <option value="">Status (todos)</option>
         <option value="ok">✅ OK</option>
         <option value="anexado">📎 Anexado</option>
         <option value="pendente">⏳ Pendente</option>
         <option value="n/a">— N/A</option>
       </select>
-      <select id="recibo-resp-filter" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+      <select id="recibo-resp-filter" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;">
         <option value="">Responsável (todos)</option>
       </select>
+      <span class="clear" id="recibo-clear">limpar filtros</span>
     </div>
 
     <div style="margin:14px 20px;">
@@ -695,6 +705,52 @@ tr.row-expanded td{background:#F0F6FF!important;}
     </div>
   </div>
 
+  <!-- Modal: Adicionar linha de recibo manualmente -->
+  <div id="modal-recibo-add" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:12px;padding:28px 32px;width:460px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.22);position:relative;">
+      <button id="modal-recibo-add-close" style="position:absolute;top:12px;right:14px;border:none;background:none;font-size:20px;cursor:pointer;color:#888;">✕</button>
+      <div style="font-size:15px;font-weight:700;color:#1a2340;margin-bottom:20px;">➕ Adicionar linha de recibo</div>
+      <div style="display:grid;gap:12px;">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Empresa *</label>
+          <input id="modal-recibo-empresa" type="text" style="width:100%;padding:7px 10px;border:1px solid #d0d7e2;border-radius:7px;font-size:13px;box-sizing:border-box;" placeholder="Nome da empresa">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Obrigação</label>
+          <input id="modal-recibo-obrigacao" type="text" style="width:100%;padding:7px 10px;border:1px solid #d0d7e2;border-radius:7px;font-size:13px;box-sizing:border-box;" placeholder="Ex: SPED ICMS, EFD-Contribuições…">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Período</label>
+            <input id="modal-recibo-periodo" type="text" style="width:100%;padding:7px 10px;border:1px solid #d0d7e2;border-radius:7px;font-size:13px;box-sizing:border-box;" placeholder="MM/AAAA">
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Responsável</label>
+            <input id="modal-recibo-responsavel" type="text" style="width:100%;padding:7px 10px;border:1px solid #d0d7e2;border-radius:7px;font-size:13px;box-sizing:border-box;" placeholder="Nome/sigla">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Status</label>
+          <select id="modal-recibo-status" style="width:100%;padding:7px 10px;border:1px solid #d0d7e2;border-radius:7px;font-size:13px;box-sizing:border-box;">
+            <option value="pendente">⏳ Pendente</option>
+            <option value="ok">✅ OK</option>
+            <option value="n/a">— N/A</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Aba de destino</label>
+          <select id="modal-recibo-aba-dest" style="width:100%;padding:7px 10px;border:1px solid #d0d7e2;border-radius:7px;font-size:13px;box-sizing:border-box;">
+          </select>
+          <div style="font-size:11px;color:#888;margin-top:3px;">A linha será inserida nesta aba.</div>
+        </div>
+      </div>
+      <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
+        <button id="modal-recibo-add-cancel" style="padding:8px 20px;border:1px solid #d0d7e2;border-radius:7px;background:#fff;color:#555;font-size:13px;cursor:pointer;">Cancelar</button>
+        <button id="modal-recibo-add-save" style="padding:8px 22px;border:none;border-radius:7px;background:#2D6CDF;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Salvar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- =========================================================
        MÓDULO CRONOGRAMA ANUAL
        ========================================================= -->
@@ -705,6 +761,7 @@ tr.row-expanded td{background:#F0F6FF!important;}
       <button id="btn-anual-add-row" title="Adicionar linha manualmente na aba atual" style="padding:6px 13px;background:#2D6CDF;color:#fff;border:none;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">➕ Adicionar linha</button>
       <button id="btn-anual-import" title="Importar planilha XLSX para substituir dados desta aba" style="padding:6px 13px;background:#fff;color:#2D6CDF;border:1px solid #2D6CDF;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">📥 Importar planilha</button>
       <input type="text" id="anual-search" placeholder="Buscar empresa..." style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:220px;">
+      <span class="clear" id="anual-clear">limpar filtros</span>
     </div>
     <!-- TABS das planilhas -->
     <div id="anual-tabs-nav" style="display:flex;gap:2px;padding:0 16px;margin-bottom:0;border-bottom:2px solid var(--border);background:#f8f9fb;">
@@ -4432,6 +4489,9 @@ tryRestoreSession();
     document.addEventListener('mouseup',stop);
   }
 
+  /* ── FILTROS DE COLUNA (estado) ─────────────────────── */
+  let reciboColFilters = {}; // { empresa:'XPTO', status:'ok', … }
+
   /* ── RENDER PRINCIPAL ────────────────────────────────── */
   function reciboRenderAll(){
     rsLoad();
@@ -4470,48 +4530,101 @@ tryRestoreSession();
       </div>`;
     }).join('');
     navEl.querySelectorAll('[data-aba]').forEach(el=>{
-      el.addEventListener('click',()=>{ RS.abaAtiva=el.dataset.aba; abaSelect.value=el.dataset.aba; reciboRenderAll(); });
+      el.addEventListener('click',()=>{ RS.abaAtiva=el.dataset.aba; abaSelect.value=el.dataset.aba; reciboColFilters={}; reciboRenderAll(); });
     });
 
-    // Coletar registros
-    let registros=[];
+    // Coletar registros da aba ativa (sem filtros ainda — para gerar valores únicos do dropdown)
     const abaAlvo=abaSelect.value||RS.abaAtiva;
+    let todosRegistros=[];
     if(abaAlvo&&RS.abas[abaAlvo]){
-      RS.abas[abaAlvo].forEach(r=>registros.push({...r,_aba:abaAlvo}));
+      RS.abas[abaAlvo].forEach(r=>todosRegistros.push({...r,_aba:abaAlvo}));
+    }
+    todosRegistros=filtrarPorResp(todosRegistros);
+
+    // Helper: valores únicos de uma chave (para o dropdown de filtro)
+    function colVals(key){
+      const s=new Set();
+      todosRegistros.forEach(r=>{
+        let v='';
+        if(key==='status'){
+          v=r.status==='ok'?'✅ OK':r.status==='n/a'?'— N/A':r.pdf_data?'📎 Anexado':'⏳ Pendente';
+        } else {
+          v=String(r[key]||'').trim();
+        }
+        if(v) s.add(v);
+      });
+      return Array.from(s).sort();
     }
 
-    // Filtro por responsável
-    registros=filtrarPorResp(registros);
-
-    // Filtros busca/status
-    if(searchVal) registros=registros.filter(r=>norm(r.empresa).includes(searchVal)||norm(r.obrigacao||'').includes(searchVal));
-    if(statusFil==='ok')         registros=registros.filter(r=>r.status==='ok');
-    else if(statusFil==='n/a')   registros=registros.filter(r=>r.status==='n/a');
-    else if(statusFil==='pendente') registros=registros.filter(r=>r.status==='pendente'||!r.status);
-    else if(statusFil==='anexado')  registros=registros.filter(r=>r.pdf_data&&r.status!=='ok'&&r.status!=='n/a');
-    if(respFil) registros=registros.filter(r=>norm(r.responsavel||'').startsWith(respFil)||respFil.startsWith(norm(r.responsavel||'')));
+    // Aplicar filtros externos (busca + selects toolbar) + filtros de coluna
+    let registros=todosRegistros.filter(r=>{
+      if(searchVal && !norm(r.empresa).includes(searchVal) && !norm(r.obrigacao||'').includes(searchVal)) return false;
+      if(statusFil==='ok'      && r.status!=='ok') return false;
+      if(statusFil==='n/a'     && r.status!=='n/a') return false;
+      if(statusFil==='pendente'&& r.status!=='pendente' && r.status) return false;
+      if(statusFil==='anexado' && !(r.pdf_data&&r.status!=='ok'&&r.status!=='n/a')) return false;
+      if(respFil && !norm(r.responsavel||'').startsWith(respFil) && !respFil.startsWith(norm(r.responsavel||''))) return false;
+      // Filtros de coluna
+      for(const [key,val] of Object.entries(reciboColFilters)){
+        if(!val) continue;
+        let cell='';
+        if(key==='status'){
+          cell=r.status==='ok'?'✅ OK':r.status==='n/a'?'— N/A':r.pdf_data?'📎 Anexado':'⏳ Pendente';
+        } else {
+          cell=String(r[key]||'').trim();
+        }
+        if(cell!==val) return false;
+      }
+      return true;
+    });
 
     const thead=document.getElementById('recibo-thead');
     const tbody=document.getElementById('recibo-tbody');
     const empty=document.getElementById('recibo-empty');
 
     if(!registros.length){
-      thead.innerHTML=''; tbody.innerHTML='';
+      // Still render thead so filters remain visible
+      const TH='position:sticky;top:0;background:#F0F3F7;color:#1a2340;font-weight:700;border-bottom:1px solid #e0e6f0;border-right:1px solid #e0e6f0;padding:6px 10px;white-space:nowrap;z-index:2;font-size:12px;user-select:none;';
+      function mkTh(key,label,minW,noFilter){
+        const vals=colVals(key);
+        const active=reciboColFilters[key];
+        const filterHtml=noFilter?'':
+          `<span class="col-filter-wrap"><button type="button" class="col-filter-btn${active?' active':''}" data-rcfk="${key}">▼</button>`+
+          `<div class="col-filter-dropdown" id="rcfd-${key}">`+
+          `<div class="col-filter-item all-item" data-rck="${key}" data-rcv="">(Todos)</div>`+
+          vals.map(v=>`<div class="col-filter-item${active===v?' selected':''}" data-rck="${key}" data-rcv="${v.replace(/"/g,'&quot;')}">${v}</div>`).join('')+
+          `</div></span>`;
+        return `<th data-rcolkey="${key}" style="${TH}min-width:${minW};position:relative;">${label}${filterHtml}</th>`;
+      }
+      thead.innerHTML=`<tr>${mkTh('empresa','Empresa','160px')}${mkTh('obrigacao','Obrigação','130px')}${mkTh('periodo','Período','70px')}${mkTh('responsavel','Responsável','80px')}${mkTh('status','Status','100px')}<th data-rcolkey="recibo" style="${TH}min-width:160px;">Recibo</th><th data-rcolkey="acoes" style="${TH}min-width:80px;cursor:default;">Ações</th></tr>`;
+      tbody.innerHTML='';
       empty.style.display='block'; return;
     }
     empty.style.display='none';
 
-    const TH='position:sticky;top:0;background:#F0F3F7;color:#1a2340;font-weight:700;border-bottom:1px solid #e0e6f0;border-right:1px solid #e0e6f0;padding:6px 10px;white-space:nowrap;z-index:2;font-size:12px;cursor:col-resize;user-select:none;';
+    const TH='position:sticky;top:0;background:#F0F3F7;color:#1a2340;font-weight:700;border-bottom:1px solid #e0e6f0;border-right:1px solid #e0e6f0;padding:6px 10px;white-space:nowrap;z-index:2;font-size:12px;user-select:none;';
     const TD='border-bottom:1px solid #e0e6f0;border-right:1px solid #e0e6f0;padding:5px 8px;white-space:nowrap;vertical-align:middle;font-size:12px;overflow:hidden;text-overflow:ellipsis;';
 
+    function mkTh(key,label,minW,noFilter){
+      const vals=colVals(key);
+      const active=reciboColFilters[key];
+      const filterHtml=noFilter?'':
+        `<span class="col-filter-wrap"><button type="button" class="col-filter-btn${active?' active':''}" data-rcfk="${key}">▼</button>`+
+        `<div class="col-filter-dropdown" id="rcfd-${key}">`+
+        `<div class="col-filter-item all-item" data-rck="${key}" data-rcv="">(Todos)</div>`+
+        vals.map(v=>`<div class="col-filter-item${active===v?' selected':''}" data-rck="${key}" data-rcv="${v.replace(/"/g,'&quot;')}">${v}</div>`).join('')+
+        `</div></span>`;
+      return `<th data-rcolkey="${key}" style="${TH}min-width:${minW};position:relative;">${label}${filterHtml}</th>`;
+    }
+
     thead.innerHTML=`<tr>
-      <th data-rcolkey="empresa"     style="${TH}min-width:160px;">Empresa</th>
-      <th data-rcolkey="obrigacao"   style="${TH}min-width:130px;">Obrigação</th>
-      <th data-rcolkey="periodo"     style="${TH}min-width:70px;">Período</th>
-      <th data-rcolkey="responsavel" style="${TH}min-width:80px;">Responsável</th>
-      <th data-rcolkey="status"      style="${TH}min-width:100px;">Status</th>
-      <th data-rcolkey="recibo"      style="${TH}min-width:160px;">Recibo</th>
-      <th data-rcolkey="acoes"       style="${TH}min-width:80px;cursor:default;">Ações</th>
+      ${mkTh('empresa','Empresa','160px')}
+      ${mkTh('obrigacao','Obrigação','130px')}
+      ${mkTh('periodo','Período','70px')}
+      ${mkTh('responsavel','Responsável','80px')}
+      ${mkTh('status','Status','100px')}
+      <th data-rcolkey="recibo" style="${TH}min-width:160px;">Recibo</th>
+      <th data-rcolkey="acoes" style="${TH}min-width:80px;cursor:default;">Ações</th>
     </tr>`;
 
     tbody.innerHTML=registros.map((r,i)=>{
@@ -4542,6 +4655,7 @@ tryRestoreSession();
           <button data-attach="${i}" title="Anexar PDF" style="padding:3px 9px;font-size:11px;border:1px solid #2563eb;border-radius:5px;background:#fff;color:#2563eb;cursor:pointer;">📎</button>
           ${r.status!=='ok'?`<button data-ok="${i}" title="Marcar OK" style="margin-left:4px;padding:3px 9px;font-size:11px;border:1px solid #059669;border-radius:5px;background:#fff;color:#059669;cursor:pointer;">✓</button>`:''}
           ${r.pdf_data?`<button data-del="${i}" title="Remover PDF" style="margin-left:4px;padding:3px 9px;font-size:11px;border:1px solid #dc2626;border-radius:5px;background:#fff;color:#dc2626;cursor:pointer;">✕</button>`:''}
+          ${r._manual?`<button data-del-row="${i}" title="Excluir linha" style="margin-left:4px;padding:3px 9px;font-size:11px;border:1px solid #9f1239;border-radius:5px;background:#fff;color:#9f1239;cursor:pointer;">🗑</button>`:''}
         </td>
       </tr>`;
     }).join('');
@@ -4581,6 +4695,14 @@ tryRestoreSession();
         if(reg){ reg.pdf_data=null; reg.pdf_name=null; reg.ok_auto=false; rsSave(); reciboRenderAll(); }
       });
     });
+    tbody.querySelectorAll('[data-del-row]').forEach(el=>{
+      el.addEventListener('click',()=>{
+        if(!confirm('Excluir esta linha? Esta ação não pode ser desfeita.')) return;
+        const r=registros[parseInt(el.dataset.delRow)];
+        const idx=RS.abas[r._aba].findIndex(x=>x._manual&&norm(x.empresa)===norm(r.empresa)&&norm(x.obrigacao||'')===norm(r.obrigacao||'')&&(x.periodo||'')===(r.periodo||''));
+        if(idx>=0){ RS.abas[r._aba].splice(idx,1); rsSave(); reciboRenderAll(); }
+      });
+    });
   }
 
   /* ── INPUTS E LISTENERS ──────────────────────────────── */
@@ -4602,15 +4724,121 @@ tryRestoreSession();
 
   document.getElementById('btn-recibo-import-xlsx').addEventListener('click',()=>inXlsx.click());
   document.getElementById('btn-recibo-attach').addEventListener('click',()=>inPdf.click());
+
+  /* ── ADICIONAR LINHA MANUALMENTE ────────────────────── */
+  function abrirModalReciboAdd(){
+    const modal = document.getElementById('modal-recibo-add');
+    // Preencher select de abas
+    const sel = document.getElementById('modal-recibo-aba-dest');
+    const abas = Object.keys(RS.abas);
+    if(!abas.length){
+      // Se não há abas ainda, criar uma aba padrão
+      sel.innerHTML = '<option value="__nova__">Nova aba "Geral"</option>';
+    } else {
+      sel.innerHTML = abas.map(a=>`<option value="${a}"${a===RS.abaAtiva?' selected':''}>${a}</option>`).join('');
+    }
+    // Limpar campos
+    ['empresa','obrigacao','periodo','responsavel'].forEach(f=>{
+      document.getElementById('modal-recibo-'+f).value='';
+    });
+    document.getElementById('modal-recibo-status').value='pendente';
+    modal.style.display='flex';
+    setTimeout(()=>document.getElementById('modal-recibo-empresa').focus(),50);
+  }
+
+  document.getElementById('btn-recibo-add-row').addEventListener('click', abrirModalReciboAdd);
+  document.getElementById('modal-recibo-add-close').addEventListener('click', ()=>{ document.getElementById('modal-recibo-add').style.display='none'; });
+  document.getElementById('modal-recibo-add-cancel').addEventListener('click', ()=>{ document.getElementById('modal-recibo-add').style.display='none'; });
+  document.getElementById('modal-recibo-add').addEventListener('click', function(e){ if(e.target===this) this.style.display='none'; });
+
+  document.getElementById('modal-recibo-add-save').addEventListener('click', function(){
+    const empresa = document.getElementById('modal-recibo-empresa').value.trim();
+    if(!empresa){ document.getElementById('modal-recibo-empresa').focus(); document.getElementById('modal-recibo-empresa').style.borderColor='#dc2626'; return; }
+    document.getElementById('modal-recibo-empresa').style.borderColor='';
+
+    let abaDestino = document.getElementById('modal-recibo-aba-dest').value;
+    if(abaDestino==='__nova__') abaDestino='Geral';
+    if(!RS.abas[abaDestino]) RS.abas[abaDestino]=[];
+
+    const novaLinha = {
+      empresa,
+      obrigacao: document.getElementById('modal-recibo-obrigacao').value.trim(),
+      periodo:   document.getElementById('modal-recibo-periodo').value.trim(),
+      responsavel: document.getElementById('modal-recibo-responsavel').value.trim(),
+      status:    document.getElementById('modal-recibo-status').value,
+      _manual:   true,
+      pdf_data:  null,
+      pdf_name:  null,
+      recibo_path: ''
+    };
+    RS.abas[abaDestino].push(novaLinha);
+    RS.abaAtiva = abaDestino;
+    rsSave();
+    document.getElementById('modal-recibo-add').style.display='none';
+    reciboRenderAll();
+    // Scroll to bottom
+    const wrap = document.getElementById('recibo-wrap');
+    if(wrap) setTimeout(()=>{ wrap.scrollTop=wrap.scrollHeight; }, 100);
+  });
+
+  // Tecla Enter no modal salva
+  document.getElementById('modal-recibo-add').addEventListener('keydown', function(e){
+    if(e.key==='Enter' && e.target.tagName!=='BUTTON') document.getElementById('modal-recibo-add-save').click();
+    if(e.key==='Escape') document.getElementById('modal-recibo-add').style.display='none';
+  });
   document.getElementById('recibo-search').addEventListener('input',reciboRenderAll);
   document.getElementById('recibo-aba').addEventListener('change',function(){ RS.abaAtiva=this.value||RS.abaAtiva; reciboRenderAll(); });
   document.getElementById('recibo-status-filter').addEventListener('change',reciboRenderAll);
   document.getElementById('recibo-resp-filter').addEventListener('change',reciboRenderAll);
 
+  document.getElementById('recibo-clear').addEventListener('click', function(){
+    document.getElementById('recibo-search').value = '';
+    document.getElementById('recibo-aba').value = '';
+    document.getElementById('recibo-status-filter').value = '';
+    document.getElementById('recibo-resp-filter').value = '';
+    reciboColFilters = {};
+    reciboRenderAll();
+  });
+
   window.reciboRenderAll=reciboRenderAll;
   rsLoad();
   initResize('mod-recibos','recibo-wrap','data-rcolkey');
   initResize('mod-time','time-wrap','data-tcolkey');
+
+  /* ── FILTROS DE COLUNA — cliques no recibo-wrap ──────── */
+  document.getElementById('recibo-wrap').addEventListener('click', function(e){
+    // Abrir/fechar dropdown
+    const btn=e.target.closest('.col-filter-btn[data-rcfk]');
+    if(btn && !e.target.closest('.col-filter-item')){
+      e.stopPropagation();
+      const dd=btn.nextElementSibling;
+      if(!dd) return;
+      const isOpen=dd.classList.contains('open');
+      document.querySelectorAll('.col-filter-dropdown.open').forEach(d=>d.classList.remove('open'));
+      if(!isOpen){
+        const rect=btn.getBoundingClientRect();
+        dd.style.position='fixed';
+        dd.style.top=(rect.bottom+4)+'px';
+        dd.style.left=Math.max(4,rect.left)+'px';
+        dd.classList.add('open');
+      }
+      return;
+    }
+    // Selecionar item
+    const item=e.target.closest('.col-filter-item[data-rck]');
+    if(item){
+      reciboColFilters[item.dataset.rck]=item.dataset.rcv;
+      document.querySelectorAll('.col-filter-dropdown.open').forEach(d=>d.classList.remove('open'));
+      reciboRenderAll();
+      return;
+    }
+  }, true);
+  // Fechar dropdown ao clicar fora
+  document.addEventListener('click', function(e){
+    if(!e.target.closest('.col-filter-btn[data-rcfk]') && !e.target.closest('.col-filter-dropdown')){
+      document.querySelectorAll('.col-filter-dropdown.open').forEach(d=>d.classList.remove('open'));
+    }
+  });
 })();
 
 
@@ -4908,6 +5136,14 @@ const ANUAL_DATA = {"DIRF": [{"cod": "334.0", "nome": "45168841 MILENA AGOSTINHO
       anualSearchVal = e.target.value.trim();
       renderAnual();
     }
+  });
+
+  // Limpar filtros
+  document.getElementById('anual-clear').addEventListener('click', function(){
+    anualSearchVal = '';
+    anualColFilters = {};
+    document.getElementById('anual-search').value = '';
+    renderAnual();
   });
 
   // Hook into main mod-tab switching to render when anual tab is opened
