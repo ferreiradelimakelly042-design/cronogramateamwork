@@ -195,19 +195,22 @@ th.col-actions,td.col-actions{overflow:visible;text-align:center;}
 .col-filter-wrap{position:relative;display:inline-block;}
 .col-filter-btn{background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px;color:var(--text-soft);line-height:1;vertical-align:middle;}
 .col-filter-btn.active{color:var(--accent);}
-.col-filter-dropdown{position:fixed;min-width:180px;background:#fff;border:1px solid var(--border);border-radius:7px;box-shadow:0 6px 20px rgba(20,40,64,.15);z-index:9999;padding:6px 0;display:none;max-height:280px;overflow-y:auto;}
+.col-filter-dropdown{position:fixed;min-width:180px;max-width:340px;background:#fff;border:1px solid var(--border);border-radius:7px;box-shadow:0 6px 20px rgba(20,40,64,.15);z-index:9999;padding:6px 0;display:none;max-height:280px;overflow-y:auto;overflow-x:hidden;}
 .col-filter-dropdown.open{display:block;}
-.col-filter-item{padding:5px 14px;font-size:12px;cursor:pointer;white-space:nowrap;color:var(--text);display:flex;align-items:center;gap:7px;}
+.col-filter-item{padding:5px 14px;font-size:12px;cursor:pointer;color:var(--text);display:flex;align-items:flex-start;gap:7px;white-space:normal;word-break:break-word;}
+.col-filter-item span{min-width:0;flex:1 1 auto;overflow-wrap:break-word;}
 .col-filter-item:hover{background:var(--accent-soft);}
 .col-filter-item.selected{font-weight:700;color:var(--accent);}
 .col-filter-item.all-item{color:var(--text-soft);border-bottom:1px solid var(--border);margin-bottom:4px;}
-.col-filter-item input[type=checkbox]{cursor:pointer;margin:0;flex-shrink:0;}
+.col-filter-item input[type=checkbox]{cursor:pointer;margin:2px 0 0;flex-shrink:0;}
 .col-filter-actions{display:flex;justify-content:space-between;gap:8px;padding:2px 14px 6px;font-size:11px;border-bottom:1px solid var(--border);margin-bottom:4px;}
 .col-filter-actions span{color:var(--accent);cursor:pointer;text-decoration:underline;}
 
 .cell-input,.cell-select{width:100%;border:1px solid transparent;border-radius:5px;padding:3px 5px;font-size:12.5px;background:transparent;}
 .cell-input:hover,.cell-select:hover{border-color:var(--border);}
 .cell-input:focus,.cell-select:focus{outline:none;border-color:var(--accent);background:#fff;}
+td.cell-selected{outline:2px solid var(--accent);outline-offset:-2px;}
+td.cell-copy-flash{background:var(--accent-soft)!important;}
 .cell-input[readonly],.cell-readonly{color:var(--text-soft);background:transparent;border:none;padding:3px 5px;display:block;overflow:hidden;text-overflow:ellipsis;}
 .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:700;letter-spacing:.2px;}
 .st-feito{background:var(--st-feito-bg);color:var(--st-feito-fg);}
@@ -972,7 +975,7 @@ const COLUMNS = [
   {key:'rev_resp',   label:'RESP.',      group:'REVISÃO',          type:'text'},
   {key:'post_data',  label:'DATA',       group:'DATA DE POSTAGEM', type:'date',   stage:'postagem'},
   {key:'post_status',label:'STATUS',     group:'DATA DE POSTAGEM', type:'status', stage:'postagem'},
-  {key:'post_data2', label:'POST.',      group:'DATA DE POSTAGEM', type:'fillstatus', stage:'postagem'},
+  {key:'post_data2', label:'POST.',      group:'DATA DE POSTAGEM', type:'date',   stage:'postagem'},
   {key:'post_resp',  label:'RESP.',      group:'DATA DE POSTAGEM', type:'text'},
   {key:'conf_data',  label:'DATA',       group:'CONFERÊNCIA',      type:'date',   stage:'conferencia'},
   {key:'conf_status',label:'STATUS',     group:'CONFERÊNCIA',      type:'status', stage:'conferencia'},
@@ -989,10 +992,13 @@ const STAGE_DEFS = {
 };
 const STATUS_DEADLINE_KEY = {elab_status:'elab_prazo',rev_status:'rev_data',post_status:'post_data',conf_status:'conf_data'};
 // Mapeia cada "STATUS" (calculado, bloqueado) para sua coluna de preenchimento (FEITO/N/A) e prazo correspondente
+// post_status usa dateFill: a coluna POST. agora guarda a data real da postagem —
+// se tiver data preenchida, conta como FEITO; se estiver vazia (ou só "N/A"), o
+// status volta a ser calculado pelo prazo (VENCIDO/NO PRAZO), como se não tivesse sido feito.
 const STAGE_BY_STATUSKEY = {
   elab_status:{fillKey:'elab_sub', deadlineKey:'elab_prazo'},
   rev_status: {fillKey:'rev_sub',  deadlineKey:'rev_data'},
-  post_status:{fillKey:'post_data2',deadlineKey:'post_data'},
+  post_status:{fillKey:'post_data2',deadlineKey:'post_data', dateFill:true},
   conf_status:{fillKey:'fe',       deadlineKey:'conf_data'},
 };
 const STATUS_FIELDS = ['elab_status','rev_status','post_status','conf_status'];
@@ -1223,9 +1229,13 @@ function statusClass(v){
 function effectiveStatus(row,statusKey){
   const m=STAGE_BY_STATUSKEY[statusKey];
   if(!m) return 'PENDENTE';
-  const raw=norm(row[m.fillKey]);
-  if(raw==='FEITO') return 'FEITO';
-  if(raw==='N/A') return 'FEITO';
+  if(m.dateFill){
+    if(isISO(row[m.fillKey])) return 'FEITO';
+  } else {
+    const raw=norm(row[m.fillKey]);
+    if(raw==='FEITO') return 'FEITO';
+    if(raw==='N/A') return 'FEITO';
+  }
   const deadline=row[m.deadlineKey];
   if(!isISO(deadline)) return 'PENDENTE';
   // Compara data de hoje (sem hora) com o prazo
@@ -1667,6 +1677,7 @@ document.getElementById('f-clear').addEventListener('click',()=>{
   state.filters={search:'',dep:'',status:'',periodo:'',resp:''};
   colFilters={};
   ['f-search','f-dep','f-status','f-periodo','f-resp'].forEach(id=>document.getElementById(id).value='');
+  resetFiscalFilterFreeze();
   state.page=1;renderTable();renderStats();
   updateFiscalAtivBtnState();
 });
@@ -1735,6 +1746,7 @@ document.getElementById('fiscal-ativ-dropdown').addEventListener('change', e=>{
   if(!colFilters['atividade'])colFilters['atividade']=[];
   if(chk.checked){ if(!colFilters['atividade'].includes(val))colFilters['atividade'].push(val); }
   else colFilters['atividade']=colFilters['atividade'].filter(v=>v!==val);
+  resetFiscalFilterFreeze();
   state.page=1;renderAll();
   updateFiscalAtivBtnState();
 });
@@ -1742,12 +1754,14 @@ document.getElementById('fiscal-ativ-dropdown').addEventListener('click', e=>{
   const allBtn=e.target.closest('[data-fa-all]');
   if(allBtn){
     colFilters['atividade']=getColFilterValues('atividade').slice();
+    resetFiscalFilterFreeze();
     state.page=1;renderAll();renderFiscalAtivDropdown();updateFiscalAtivBtnState();
     return;
   }
   const noneBtn=e.target.closest('[data-fa-none]');
   if(noneBtn){
     colFilters['atividade']=[];
+    resetFiscalFilterFreeze();
     state.page=1;renderAll();renderFiscalAtivDropdown();updateFiscalAtivBtnState();
     return;
   }
@@ -1764,12 +1778,18 @@ function onFilterChange(){
   state.filters.status=document.getElementById('f-status').value;
   state.filters.periodo=document.getElementById('f-periodo').value;
   state.filters.resp=document.getElementById('f-resp').value;
+  resetFiscalFilterFreeze();
   state.page=1;renderTable();renderStats();
 }
 function getBaseRows(){
   return state.data;
 }
-function getFilteredRows(){
+// Congela a lista de linhas filtradas: preenchimentos/edições feitos com um filtro
+// ativo não devem fazer a linha "sumir" da tela. A lista só é recalculada quando
+// o próprio filtro muda (busca, selects, filtros de coluna, importação, etc.)
+let fiscalFrozenIds=null;
+function resetFiscalFilterFreeze(){ fiscalFrozenIds=null; }
+function computeFilteredRows(){
   const f=state.filters;
   return getBaseRows().filter(r=>{
     if(f.search){const hay=norm(r.empresa)+' '+norm(r.atividade);if(!hay.includes(f.search.toUpperCase()))return false;}
@@ -1791,6 +1811,16 @@ function getFilteredRows(){
     }
     return true;
   });
+}
+function getFilteredRows(){
+  if(fiscalFrozenIds){
+    const map={};state.data.forEach(r=>{map[r.id]=r;});
+    const rows=fiscalFrozenIds.map(id=>map[id]).filter(Boolean);
+    return rows;
+  }
+  const rows=computeFilteredRows();
+  fiscalFrozenIds=rows.map(r=>r.id);
+  return rows;
 }
 
 /* =========================================================
@@ -1814,6 +1844,7 @@ document.getElementById('stats-bar').addEventListener('click',e=>{
   const val=card.dataset.statfilter;
   state.filters.status=(state.filters.status===val)?'':val;
   document.getElementById('f-status').value=state.filters.status;
+  resetFiscalFilterFreeze();
   state.page=1;renderAll();
 });
 
@@ -2043,6 +2074,79 @@ document.getElementById('table-wrap').addEventListener('click',e=>{
   // (expand e modal de detalhe removidos)
 });
 
+/* =========================================================
+   COPIAR / COLAR CÉLULAS (estilo Excel) — Cronograma Mensal
+   Clique numa célula para selecioná-la; Shift+clique numa célula abaixo
+   (mesma coluna) seleciona o intervalo. Ctrl+C copia, Ctrl+V cola em
+   todas as células selecionadas.
+   ========================================================= */
+let cellClipboard=null;   // {field, value}
+let cellSelAnchorId=null; // id da linha onde a seleção começou
+let cellSelField=null;    // coluna selecionada
+let cellSelIds=[];        // ids selecionados, na ordem visível atual
+
+function clearCellSelection(){
+  document.querySelectorAll('#table-wrap .cell-selected').forEach(el=>el.classList.remove('cell-selected'));
+  cellSelIds=[];cellSelAnchorId=null;cellSelField=null;
+}
+function markCellSelection(field,ids){
+  document.querySelectorAll('#table-wrap .cell-selected').forEach(el=>el.classList.remove('cell-selected'));
+  ids.forEach(id=>{
+    const el=document.querySelector(`#table-wrap [data-id="${id}"][data-field="${field}"]`);
+    const td=el&&el.closest('td');
+    if(td)td.classList.add('cell-selected');
+  });
+}
+document.getElementById('table-wrap').addEventListener('click',e=>{
+  const el=e.target.closest('[data-id][data-field]');
+  if(!el)return;
+  const field=el.dataset.field,id=el.dataset.id;
+  if(e.shiftKey&&cellSelField===field&&cellSelAnchorId){
+    const rows=getFilteredRows();
+    const start=rows.findIndex(r=>r.id===cellSelAnchorId);
+    const end=rows.findIndex(r=>r.id===id);
+    if(start>-1&&end>-1){
+      const a=Math.min(start,end),b=Math.max(start,end);
+      cellSelIds=rows.slice(a,b+1).map(r=>r.id);
+      markCellSelection(field,cellSelIds);
+    }
+  } else {
+    cellSelField=field;cellSelAnchorId=id;cellSelIds=[id];
+    markCellSelection(field,cellSelIds);
+  }
+});
+document.addEventListener('keydown',e=>{
+  const modFiscal=document.getElementById('mod-fiscal');
+  if(!modFiscal||modFiscal.style.display==='none')return;
+  const key=e.key.toLowerCase();
+  if((e.ctrlKey||e.metaKey)&&key==='c'){
+    if(!cellSelField||!cellSelAnchorId)return;
+    const row=state.data.find(r=>r.id===cellSelAnchorId);
+    if(!row)return;
+    cellClipboard={field:cellSelField,value:row[cellSelField]};
+    document.querySelectorAll('#table-wrap .cell-selected').forEach(td=>{
+      td.classList.add('cell-copy-flash');
+      setTimeout(()=>td.classList.remove('cell-copy-flash'),350);
+    });
+  }
+  if((e.ctrlKey||e.metaKey)&&key==='v'){
+    if(!cellClipboard||!cellSelIds.length||cellSelField!==cellClipboard.field)return;
+    e.preventDefault();
+    let changed=0;
+    cellSelIds.forEach(id=>{
+      const row=state.data.find(r=>r.id===id);
+      if(!row)return;
+      if(!canEditField(row,cellClipboard.field,state.currentUser))return;
+      row[cellClipboard.field]=cellClipboard.value;
+      changed++;
+    });
+    if(changed){saveData();renderTable();renderStats();}
+  }
+});
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#table-wrap'))clearCellSelection();
+});
+
 /* ---- Resize de colunas — arrastar borda + duplo clique para digitar ---- */
 (function(){
   const EDGE=6;
@@ -2216,6 +2320,7 @@ document.getElementById('table-wrap').addEventListener('click',e=>{
     if(!colFilters[key])colFilters[key]=[];
     if(chk.checked){ if(!colFilters[key].includes(val))colFilters[key].push(val); }
     else colFilters[key]=colFilters[key].filter(v=>v!==val);
+    resetFiscalFilterFreeze();
     state.page=1;renderAll();
     openDropdown(key);
   });
@@ -2226,6 +2331,7 @@ document.getElementById('table-wrap').addEventListener('click',e=>{
       e.stopPropagation();
       const key=allEl.dataset.cfall;
       colFilters[key]=getColFilterValues(key).slice();
+      resetFiscalFilterFreeze();
       state.page=1;renderAll();
       openDropdown(key);
       return;
@@ -2235,6 +2341,7 @@ document.getElementById('table-wrap').addEventListener('click',e=>{
       e.stopPropagation();
       const key=noneEl.dataset.cfnone;
       colFilters[key]=[];
+      resetFiscalFilterFreeze();
       state.page=1;renderAll();
       openDropdown(key);
       return;
@@ -2327,7 +2434,7 @@ function openDetailModal(row){
           ${fld('post_data','Data','date',null,false,false)}
           ${fld('post_resp','Responsável','text',null,false,false)}
           ${fld('post_status','Status','status')}
-          ${fld('post_data2','POST.','fillstatus')}
+          ${fld('post_data2','POST.','date')}
         </div>
       </div>
       <div class="dm-stage">
@@ -2382,6 +2489,7 @@ document.getElementById('btn-add-row').addEventListener('click',()=>{
   }
   state.data.push(nr);
   saveData();buildFilterOptions();
+  resetFiscalFilterFreeze();
   state.page=Math.ceil(state.data.length/state.pageSize);
   renderAll();
   openDetailModal(nr);
@@ -2399,7 +2507,7 @@ document.getElementById('file-input').addEventListener('change',e=>{
     try{const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});const res=importWorkbook(wb);
       const s=document.getElementById('import-summary');s.style.display='block';
       s.innerHTML=`Importação: <b>${res.added}</b> novas, <b>${res.updated}</b> atualizadas, <b>${res.kept}</b> mantidas sem alteração. Total na planilha: <b>${res.total}</b>. Nenhuma linha existente foi excluída.`;
-      buildFilterOptions();state.page=1;renderAll();
+      buildFilterOptions();resetFiscalFilterFreeze();state.page=1;renderAll();
     }catch(err){alert('Erro ao ler o arquivo.\n\n'+err.message);}
     e.target.value='';
   };reader.readAsArrayBuffer(file);
@@ -3344,6 +3452,7 @@ document.getElementById('btn-dm-confirmar').addEventListener('click',()=>{
       const removed=removePeriod(periodo);
       buildFilterOptions();
       if(state.filters.periodo===periodo) state.filters.periodo='';
+      resetFiscalFilterFreeze();
       state.page=1;
       renderAll();
       fb.innerHTML=`✅ ${removed} atividade(s) removida(s) do mês ${fmtMonthYear(periodo)}.`;
@@ -3401,6 +3510,7 @@ function doRollMonth(mesVal,newPeriodo){
 
   // Filtra para o novo mês
   state.filters.periodo=newPeriodo;
+  resetFiscalFilterFreeze();
   state.page=1;
   renderAll();
 
