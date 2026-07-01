@@ -195,7 +195,7 @@ th.col-actions,td.col-actions{overflow:visible;text-align:center;}
 .col-filter-wrap{position:relative;display:inline-block;}
 .col-filter-btn{background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px;color:var(--text-soft);line-height:1;vertical-align:middle;}
 .col-filter-btn.active{color:var(--accent);}
-.col-filter-dropdown{position:fixed;min-width:180px;max-width:340px;background:#fff;border:1px solid var(--border);border-radius:7px;box-shadow:0 6px 20px rgba(20,40,64,.15);z-index:9999;padding:6px 0;display:none;max-height:280px;overflow-y:auto;overflow-x:hidden;}
+.col-filter-dropdown{position:fixed;width:260px;background:#fff;border:1px solid var(--border);border-radius:7px;box-shadow:0 6px 20px rgba(20,40,64,.15);z-index:9999;padding:6px 0;display:none;max-height:280px;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;}
 .col-filter-dropdown.open{display:block;}
 .col-filter-item{padding:5px 14px;font-size:12px;cursor:pointer;color:var(--text);display:flex;align-items:flex-start;gap:7px;white-space:normal;word-break:break-word;}
 .col-filter-item span{min-width:0;flex:1 1 auto;overflow-wrap:break-word;}
@@ -204,7 +204,7 @@ th.col-actions,td.col-actions{overflow:visible;text-align:center;}
 .col-filter-item.all-item{color:var(--text-soft);border-bottom:1px solid var(--border);margin-bottom:4px;}
 .col-filter-item input[type=checkbox]{cursor:pointer;margin:2px 0 0;flex-shrink:0;}
 .col-filter-actions{display:flex;justify-content:space-between;gap:8px;padding:2px 14px 6px;font-size:11px;border-bottom:1px solid var(--border);margin-bottom:4px;}
-.col-filter-actions span{color:var(--accent);cursor:pointer;text-decoration:underline;}
+.col-filter-actions span{color:var(--accent);cursor:pointer;text-decoration:underline;white-space:nowrap;flex-shrink:0;}
 
 .cell-input,.cell-select{width:100%;border:1px solid transparent;border-radius:5px;padding:3px 5px;font-size:12.5px;background:transparent;}
 .cell-input:hover,.cell-select:hover{border-color:var(--border);}
@@ -1753,16 +1753,20 @@ document.getElementById('fiscal-ativ-dropdown').addEventListener('change', e=>{
 document.getElementById('fiscal-ativ-dropdown').addEventListener('click', e=>{
   const allBtn=e.target.closest('[data-fa-all]');
   if(allBtn){
+    const dd=document.getElementById('fiscal-ativ-dropdown');const scrollPos=dd?dd.scrollTop:0;
     colFilters['atividade']=getColFilterValues('atividade').slice();
     resetFiscalFilterFreeze();
     state.page=1;renderAll();renderFiscalAtivDropdown();updateFiscalAtivBtnState();
+    dd.scrollTop=scrollPos;
     return;
   }
   const noneBtn=e.target.closest('[data-fa-none]');
   if(noneBtn){
+    const dd=document.getElementById('fiscal-ativ-dropdown');const scrollPos=dd?dd.scrollTop:0;
     colFilters['atividade']=[];
     resetFiscalFilterFreeze();
     state.page=1;renderAll();renderFiscalAtivDropdown();updateFiscalAtivBtnState();
+    dd.scrollTop=scrollPos;
     return;
   }
 });
@@ -2283,8 +2287,12 @@ document.addEventListener('click',e=>{
 (function(){
   function openDropdown(key){
     const btn=document.querySelector(`.col-filter-btn[data-colfilterkey="${key}"]`);
-    const dd=document.getElementById('cfd-'+key);
-    if(!btn||!dd)return;
+    if(!btn)return;
+    const th=btn.closest('th');
+    // Remove any stray copy previously detached to <body> for this key
+    document.querySelectorAll('body > .col-filter-dropdown[id="cfd-'+key+'"]').forEach(el=>el.remove());
+    const dd=th?th.querySelector('#cfd-'+key):document.getElementById('cfd-'+key);
+    if(!dd)return;
     const vals=getColFilterValues(key);
     const cur=colFilters[key]||[];
     let html=`<div class="col-filter-actions"><span data-cfall="${key}">Marcar todos</span><span data-cfnone="${key}">Limpar</span></div>`;
@@ -2294,9 +2302,15 @@ document.addEventListener('click',e=>{
       html+=`<label class="col-filter-item"><input type="checkbox" data-cfk="${key}" data-cfv="${escv}" ${checked}><span>${v||'—'}</span></label>`;
     });
     dd.innerHTML=html;
-    const rect=btn.getBoundingClientRect();
+    // Move the dropdown out of the (possibly sticky/frozen) column so it can never
+    // be painted underneath a frozen column's own stacking context.
+    document.body.appendChild(dd);
+    const rect=th.getBoundingClientRect();
+    const ddWidth=260;
+    let left=Math.max(4,rect.left);
+    if(left+ddWidth>window.innerWidth-4) left=Math.max(4,window.innerWidth-4-ddWidth);
     dd.style.top=(rect.bottom+4)+'px';
-    dd.style.left=Math.max(4,rect.left-20)+'px';
+    dd.style.left=left+'px';
     dd.classList.add('open');
   }
   // Abrir dropdown
@@ -2317,12 +2331,16 @@ document.addEventListener('click',e=>{
     const chk=e.target.closest('.col-filter-dropdown input[data-cfk]');
     if(!chk)return;
     const key=chk.dataset.cfk,val=chk.dataset.cfv;
+    const oldDd=document.getElementById('cfd-'+key);
+    const scrollPos=oldDd?oldDd.scrollTop:0;
     if(!colFilters[key])colFilters[key]=[];
     if(chk.checked){ if(!colFilters[key].includes(val))colFilters[key].push(val); }
     else colFilters[key]=colFilters[key].filter(v=>v!==val);
     resetFiscalFilterFreeze();
     state.page=1;renderAll();
     openDropdown(key);
+    const newDd=document.getElementById('cfd-'+key);
+    if(newDd) newDd.scrollTop=scrollPos;
   });
   // Marcar todos / Limpar
   document.addEventListener('click',e=>{
@@ -2330,20 +2348,24 @@ document.addEventListener('click',e=>{
     if(allEl){
       e.stopPropagation();
       const key=allEl.dataset.cfall;
+      const oldDd=document.getElementById('cfd-'+key);const scrollPos=oldDd?oldDd.scrollTop:0;
       colFilters[key]=getColFilterValues(key).slice();
       resetFiscalFilterFreeze();
       state.page=1;renderAll();
       openDropdown(key);
+      const newDd=document.getElementById('cfd-'+key);if(newDd)newDd.scrollTop=scrollPos;
       return;
     }
     const noneEl=e.target.closest('[data-cfnone]');
     if(noneEl){
       e.stopPropagation();
       const key=noneEl.dataset.cfnone;
+      const oldDd=document.getElementById('cfd-'+key);const scrollPos=oldDd?oldDd.scrollTop:0;
       colFilters[key]=[];
       resetFiscalFilterFreeze();
       state.page=1;renderAll();
       openDropdown(key);
+      const newDd=document.getElementById('cfd-'+key);if(newDd)newDd.scrollTop=scrollPos;
       return;
     }
     // Fechar ao clicar fora do dropdown
@@ -2791,12 +2813,17 @@ document.getElementById('cont-wrap').addEventListener('change',e=>{
 /* Filtros de coluna CONT */
 function openContColDropdown(key){
   const th=document.querySelector(`#cont-wrap thead th[data-ccolkey="${key}"]`);
-  const dd=document.getElementById('ccfd-'+key);
+  document.querySelectorAll('body > .col-filter-dropdown[id="ccfd-'+key+'"]').forEach(el=>el.remove());
+  const dd=th?th.querySelector('#ccfd-'+key):document.getElementById('ccfd-'+key);
   if(!th||!dd)return;
+  document.body.appendChild(dd);
   const rect=th.getBoundingClientRect();
+  const ddWidth=260;
+  let left=Math.max(4,rect.left);
+  if(left+ddWidth>window.innerWidth-4) left=Math.max(4,window.innerWidth-4-ddWidth);
   dd.style.position='fixed';
   dd.style.top=(rect.bottom+4)+'px';
-  dd.style.left=Math.max(4,rect.left)+'px';
+  dd.style.left=left+'px';
   dd.classList.add('open');
 }
 document.getElementById('cont-wrap').addEventListener('click',e=>{
@@ -2818,18 +2845,22 @@ document.getElementById('cont-wrap').addEventListener('click',e=>{
   if(allEl){
     e.stopPropagation();
     const key=allEl.dataset.ccall;
+    const oldDd=document.getElementById('ccfd-'+key);const scrollPos=oldDd?oldDd.scrollTop:0;
     contColFilters[key]=Array.from(new Set(contState.data.map(r=>(r[key]||'')).filter(Boolean)));
     contState.page=1;contRenderAll();
     openContColDropdown(key);
+    const newDd=document.getElementById('ccfd-'+key);if(newDd)newDd.scrollTop=scrollPos;
     return;
   }
   const noneEl=e.target.closest('[data-ccnone]');
   if(noneEl){
     e.stopPropagation();
     const key=noneEl.dataset.ccnone;
+    const oldDd=document.getElementById('ccfd-'+key);const scrollPos=oldDd?oldDd.scrollTop:0;
     contColFilters[key]=[];
     contState.page=1;contRenderAll();
     openContColDropdown(key);
+    const newDd=document.getElementById('ccfd-'+key);if(newDd)newDd.scrollTop=scrollPos;
     return;
   }
 },true);
@@ -2837,11 +2868,15 @@ document.getElementById('cont-wrap').addEventListener('change',e=>{
   const chk=e.target.closest('.col-filter-dropdown input[data-cck]');
   if(!chk)return;
   const key=chk.dataset.cck,val=chk.dataset.ccv;
+  const oldDd=document.getElementById('ccfd-'+key);
+  const scrollPos=oldDd?oldDd.scrollTop:0;
   if(!contColFilters[key])contColFilters[key]=[];
   if(chk.checked){ if(!contColFilters[key].includes(val))contColFilters[key].push(val); }
   else contColFilters[key]=contColFilters[key].filter(v=>v!==val);
   contState.page=1;contRenderAll();
   openContColDropdown(key);
+  const newDd=document.getElementById('ccfd-'+key);
+  if(newDd) newDd.scrollTop=scrollPos;
 });
 
 /* Filtros CONT */
@@ -5383,10 +5418,15 @@ tryRestoreSession();
   function openReciboColDropdown(btn){
     const dd=btn.nextElementSibling;
     if(!dd) return;
+    if(dd.id) document.querySelectorAll('body > .col-filter-dropdown[id="'+dd.id+'"]').forEach(el=>{ if(el!==dd) el.remove(); });
+    document.body.appendChild(dd);
     const rect=btn.getBoundingClientRect();
+    const ddWidth=260;
+    let left=Math.max(4,rect.left);
+    if(left+ddWidth>window.innerWidth-4) left=Math.max(4,window.innerWidth-4-ddWidth);
     dd.style.position='fixed';
     dd.style.top=(rect.bottom+4)+'px';
-    dd.style.left=Math.max(4,rect.left)+'px';
+    dd.style.left=left+'px';
     dd.classList.add('open');
   }
   document.getElementById('recibo-wrap').addEventListener('click', function(e){
@@ -5407,21 +5447,26 @@ tryRestoreSession();
       e.stopPropagation();
       const key=allEl.dataset.rcall;
       const dd=allEl.closest('.col-filter-dropdown');
+      const scrollPos=dd?dd.scrollTop:0;
       const allVals=dd?Array.from(dd.querySelectorAll('input[data-rck]')).map(i=>i.dataset.rcv):[];
       reciboColFilters[key]=allVals;
       reciboRenderAll();
       const newBtn=document.querySelector(`.col-filter-btn[data-rcfk="${key}"]`);
       if(newBtn) openReciboColDropdown(newBtn);
+      const newDd=document.getElementById('rcfd-'+key);if(newDd)newDd.scrollTop=scrollPos;
       return;
     }
     const noneEl=e.target.closest('[data-rcnone]');
     if(noneEl){
       e.stopPropagation();
       const key=noneEl.dataset.rcnone;
+      const dd0=noneEl.closest('.col-filter-dropdown');
+      const scrollPos=dd0?dd0.scrollTop:0;
       reciboColFilters[key]=[];
       reciboRenderAll();
       const newBtn=document.querySelector(`.col-filter-btn[data-rcfk="${key}"]`);
       if(newBtn) openReciboColDropdown(newBtn);
+      const newDd=document.getElementById('rcfd-'+key);if(newDd)newDd.scrollTop=scrollPos;
       return;
     }
   }, true);
@@ -5429,12 +5474,16 @@ tryRestoreSession();
     const chk=e.target.closest('.col-filter-dropdown input[data-rck]');
     if(!chk) return;
     const key=chk.dataset.rck,val=chk.dataset.rcv;
+    const oldDd=document.getElementById('rcfd-'+key);
+    const scrollPos=oldDd?oldDd.scrollTop:0;
     if(!reciboColFilters[key]) reciboColFilters[key]=[];
     if(chk.checked){ if(!reciboColFilters[key].includes(val)) reciboColFilters[key].push(val); }
     else reciboColFilters[key]=reciboColFilters[key].filter(v=>v!==val);
     reciboRenderAll();
     const newBtn=document.querySelector(`.col-filter-btn[data-rcfk="${key}"]`);
     if(newBtn) openReciboColDropdown(newBtn);
+    const newDd=document.getElementById('rcfd-'+key);
+    if(newDd) newDd.scrollTop=scrollPos;
   });
   // Fechar dropdown ao clicar fora
   document.addEventListener('click', function(e){
