@@ -1268,28 +1268,36 @@ function mapRowFromArray(arr){
   });
   return obj;
 }
-// Importa uma planilha do mês: adiciona/atualiza somente os períodos presentes no arquivo,
-// preservando integralmente os meses já existentes que não fazem parte desta importação.
+// Importa uma planilha do mês: adiciona linhas novas e atualiza as que já existem
+// (mesma empresa/atividade/período/departamento), sem excluir nenhuma linha antiga —
+// mesmo as de períodos que aparecem no arquivo importado permanecem intactas se não
+// tiverem uma correspondente na planilha.
 function importWorkbook(wb){
   const sheetName=wb.SheetNames.includes('MENSAL')?'MENSAL':wb.SheetNames[0];
   const ws=wb.Sheets[sheetName];
   const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
   const newRows=[];
   for(let i=2;i<aoa.length;i++){const r=aoa[i];if(!r||r[1]==null||String(r[1]).trim()==='')continue;newRows.push(mapRowFromArray(r));}
-  const periodsInImport=new Set(newRows.map(r=>r.periodo).filter(Boolean));
   const existingByKey={};
   state.data.forEach(r=>{existingByKey[makeMatchKey(r)]=r;});
+  const totalBefore=state.data.length;
   let added=0,updated=0;
   newRows.forEach(nr=>{
     const key=makeMatchKey(nr);const existing=existingByKey[key];
-    if(existing){PRESERVE_ON_IMPORT.forEach(k=>{nr[k]=existing[k];});nr.id=existing.id;updated++;}
-    else{nr.id=uid();added++;}
+    if(existing){
+      PRESERVE_ON_IMPORT.forEach(k=>{nr[k]=existing[k];});
+      nr.id=existing.id;
+      Object.assign(existing,nr);
+      updated++;
+    } else {
+      nr.id=uid();
+      state.data.push(nr);
+      existingByKey[key]=nr;
+      added++;
+    }
   });
-  // Mantém intactas as linhas de meses não incluídos nesta importação
-  const keptOldRows=state.data.filter(r=>!periodsInImport.has(r.periodo));
-  state.data=keptOldRows.concat(newRows);
   saveData();
-  return{added,updated,total:newRows.length,kept:keptOldRows.length};
+  return{added,updated,total:newRows.length,kept:totalBefore-updated};
 }
 // Lista de períodos (meses) atualmente carregados no Cronograma Mensal
 function getDistinctPeriods(){
@@ -2390,7 +2398,7 @@ document.getElementById('file-input').addEventListener('change',e=>{
   reader.onload=ev=>{
     try{const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});const res=importWorkbook(wb);
       const s=document.getElementById('import-summary');s.style.display='block';
-      s.innerHTML=`Importação: <b>${res.added}</b> novas, <b>${res.updated}</b> atualizadas. Total: <b>${res.total}</b>.`;
+      s.innerHTML=`Importação: <b>${res.added}</b> novas, <b>${res.updated}</b> atualizadas, <b>${res.kept}</b> mantidas sem alteração. Total na planilha: <b>${res.total}</b>. Nenhuma linha existente foi excluída.`;
       buildFilterOptions();state.page=1;renderAll();
     }catch(err){alert('Erro ao ler o arquivo.\n\n'+err.message);}
     e.target.value='';
