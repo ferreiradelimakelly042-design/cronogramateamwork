@@ -150,6 +150,10 @@ input,select,button{font-family:inherit;}
 .stat-card.atraso .num{color:var(--st-atraso-fg);}
 .stat-card.noprazo .num{color:var(--st-noprazo-fg);}
 .stat-card.total .num{color:var(--brand);}
+#stats-bar .stat-card{cursor:pointer;transition:box-shadow .15s,border-color .15s,transform .1s;user-select:none;}
+#stats-bar .stat-card:hover{box-shadow:0 2px 10px rgba(20,40,64,.12);border-color:var(--accent);}
+#stats-bar .stat-card:active{transform:scale(.97);}
+#stats-bar .stat-card.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);}
 .filters{display:flex;gap:8px;padding:14px 20px 0;flex-wrap:wrap;align-items:center;}
 .filters input[type=text],.filters select{padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;}
 .filters input[type=text]{min-width:200px;}
@@ -191,12 +195,15 @@ th.col-actions,td.col-actions{overflow:visible;text-align:center;}
 .col-filter-wrap{position:relative;display:inline-block;}
 .col-filter-btn{background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px;color:var(--text-soft);line-height:1;vertical-align:middle;}
 .col-filter-btn.active{color:var(--accent);}
-.col-filter-dropdown{position:fixed;min-width:160px;background:#fff;border:1px solid var(--border);border-radius:7px;box-shadow:0 6px 20px rgba(20,40,64,.15);z-index:9999;padding:6px 0;display:none;max-height:260px;overflow-y:auto;}
+.col-filter-dropdown{position:fixed;min-width:180px;background:#fff;border:1px solid var(--border);border-radius:7px;box-shadow:0 6px 20px rgba(20,40,64,.15);z-index:9999;padding:6px 0;display:none;max-height:280px;overflow-y:auto;}
 .col-filter-dropdown.open{display:block;}
-.col-filter-item{padding:5px 14px;font-size:12px;cursor:pointer;white-space:nowrap;color:var(--text);}
+.col-filter-item{padding:5px 14px;font-size:12px;cursor:pointer;white-space:nowrap;color:var(--text);display:flex;align-items:center;gap:7px;}
 .col-filter-item:hover{background:var(--accent-soft);}
 .col-filter-item.selected{font-weight:700;color:var(--accent);}
 .col-filter-item.all-item{color:var(--text-soft);border-bottom:1px solid var(--border);margin-bottom:4px;}
+.col-filter-item input[type=checkbox]{cursor:pointer;margin:0;flex-shrink:0;}
+.col-filter-actions{display:flex;justify-content:space-between;gap:8px;padding:2px 14px 6px;font-size:11px;border-bottom:1px solid var(--border);margin-bottom:4px;}
+.col-filter-actions span{color:var(--accent);cursor:pointer;text-decoration:underline;}
 
 .cell-input,.cell-select{width:100%;border:1px solid transparent;border-radius:5px;padding:3px 5px;font-size:12.5px;background:transparent;}
 .cell-input:hover,.cell-select:hover{border-color:var(--border);}
@@ -476,6 +483,10 @@ tr.row-expanded td{background:#F0F6FF!important;}
         <div id="fiscal-cols-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);padding:8px 4px;z-index:500;min-width:220px;max-height:320px;overflow-y:auto;font-size:12.5px;"></div>
       </span>
       <button type="button" id="btn-fiscal-autofit" title="Ajustar a largura de cada coluna ao conteúdo (como no Excel)" style="padding:6px 13px;background:#fff;color:#374151;border:1px solid var(--border);border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">📏 Ajustar largura</button>
+      <span style="position:relative;display:inline-block;">
+        <button type="button" id="btn-fiscal-ativ" title="Filtrar por atividade" style="padding:6px 13px;background:#fff;color:#374151;border:1px solid var(--border);border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">📋 Atividades</button>
+        <div id="fiscal-ativ-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);padding:8px 4px;z-index:500;min-width:240px;max-height:320px;overflow-y:auto;font-size:12.5px;"></div>
+      </span>
       <span class="spacer"></span>
       <select id="f-pagesize">
         <option value="25">25 / página</option>
@@ -954,19 +965,19 @@ const COLUMNS = [
   {key:'elab_prazo', label:'DATA',       group:'ELABORAÇÃO',       type:'date'},
   {key:'elab_status',label:'STATUS',     group:'ELABORAÇÃO',       type:'status', stage:'elab'},
   {key:'elab_sub',   label:'ELAB.',      group:'ELABORAÇÃO',       type:'fillstatus', stage:'elab'},
-  {key:'elab_resp',  label:'RESP.',      group:'ELABORAÇÃO',       type:'text',   adminOnly:true},
+  {key:'elab_resp',  label:'RESP.',      group:'ELABORAÇÃO',       type:'text'},
   {key:'rev_data',   label:'DATA',       group:'REVISÃO',          type:'date',   stage:'revisao'},
   {key:'rev_status', label:'STATUS',     group:'REVISÃO',          type:'status', stage:'revisao'},
   {key:'rev_sub',    label:'REV.',       group:'REVISÃO',          type:'fillstatus', stage:'revisao'},
-  {key:'rev_resp',   label:'RESP.',      group:'REVISÃO',          type:'text',   adminOnly:true},
+  {key:'rev_resp',   label:'RESP.',      group:'REVISÃO',          type:'text'},
   {key:'post_data',  label:'DATA',       group:'DATA DE POSTAGEM', type:'date',   stage:'postagem'},
   {key:'post_status',label:'STATUS',     group:'DATA DE POSTAGEM', type:'status', stage:'postagem'},
   {key:'post_data2', label:'POST.',      group:'DATA DE POSTAGEM', type:'fillstatus', stage:'postagem'},
-  {key:'post_resp',  label:'RESP.',      group:'DATA DE POSTAGEM', type:'text',   adminOnly:true},
+  {key:'post_resp',  label:'RESP.',      group:'DATA DE POSTAGEM', type:'text'},
   {key:'conf_data',  label:'DATA',       group:'CONFERÊNCIA',      type:'date',   stage:'conferencia'},
   {key:'conf_status',label:'STATUS',     group:'CONFERÊNCIA',      type:'status', stage:'conferencia'},
   {key:'fe',         label:'CONF',       group:'CONFERÊNCIA',      type:'fillstatus', stage:'conferencia'},
-  {key:'revisor',    label:'REVISOR',    group:'CONFERÊNCIA',      type:'text',   adminOnly:true},
+  {key:'revisor',    label:'REVISOR',    group:'CONFERÊNCIA',      type:'text'},
   {key:'obs',        label:'OBSERVAÇÕES',group:null,               type:'text',   cls:'col-obs'},
   {key:'tempo',      label:'TEMPO',      group:null,               type:'text'},
 ];
@@ -1234,21 +1245,13 @@ function isResponsavel(row,user){return matchResp(row.elab_resp,user.username)||
 function canEditField(row,fieldKey,user){
   if(!user) return false;
   if(user.role==='admin') return true;
-  if(fieldKey==='tempo') return canEditRow(row,user);
-  // Permite editar status e datas se for responsável pela linha (qualquer etapa)
-  const statusFields = ['elab_status','rev_status','post_status','conf_status'];
-  const dateFields = ['elab_prazo','rev_data','post_data','conf_data','post_data2'];
-  if(statusFields.includes(fieldKey) || dateFields.includes(fieldKey)){
-    return canEditRow(row,user);
-  }
-  for(const stage in STAGE_DEFS){const def=STAGE_DEFS[stage];if(def.fields.includes(fieldKey))return matchResp(row[def.respKey],user.username);}
-  return false;
+  if(fieldKey==='empresa'||fieldKey==='periodo') return false;
+  return true;
 }
 // Qualquer usuário pode editar suas próprias linhas no modal de detalhe
 function canEditRow(row,user){
   if(!user) return false;
-  if(user.role==='admin') return true;
-  return isResponsavel(row,user);
+  return true;
 }
 
 /* =========================================================
@@ -1657,6 +1660,7 @@ document.getElementById('f-clear').addEventListener('click',()=>{
   colFilters={};
   ['f-search','f-dep','f-status','f-periodo','f-resp'].forEach(id=>document.getElementById(id).value='');
   state.page=1;renderTable();renderStats();
+  updateFiscalAtivBtnState();
 });
 /* ── Dropdown ocultar/exibir colunas (Cronograma Mensal) ── */
 function renderFiscalColsDropdown(){
@@ -1688,6 +1692,64 @@ document.addEventListener('click', e=>{
     dd.style.display='none';
   }
 });
+/* ── Dropdown filtrar por Atividade (Cronograma Mensal) ── */
+function updateFiscalAtivBtnState(){
+  const btn=document.getElementById('btn-fiscal-ativ');
+  if(!btn)return;
+  const cf=(typeof colFilters!=='undefined'&&colFilters)?colFilters:{};
+  const active=(cf['atividade']||[]).length>0;
+  btn.style.borderColor=active?'var(--accent)':'var(--border)';
+  btn.style.color=active?'var(--accent)':'#374151';
+}
+function renderFiscalAtivDropdown(){
+  const dd=document.getElementById('fiscal-ativ-dropdown');
+  const vals=getColFilterValues('atividade');
+  const cur=colFilters['atividade']||[];
+  let html=`<div class="col-filter-actions"><span data-fa-all="1">Marcar todos</span><span data-fa-none="1">Limpar</span></div>`;
+  html+=vals.map(v=>{
+    const escv=String(v).replace(/"/g,'&quot;');
+    const checked=cur.includes(v)?'checked':'';
+    return`<label class="col-filter-item"><input type="checkbox" data-fa-val="${escv}" ${checked}><span>${v||'—'}</span></label>`;
+  }).join('');
+  dd.innerHTML=html||'<div style="padding:8px 14px;color:var(--text-soft);">Nenhuma atividade encontrada.</div>';
+}
+document.getElementById('btn-fiscal-ativ').addEventListener('click', e=>{
+  e.stopPropagation();
+  const dd=document.getElementById('fiscal-ativ-dropdown');
+  const willOpen=dd.style.display==='none';
+  if(willOpen) renderFiscalAtivDropdown();
+  dd.style.display=willOpen?'block':'none';
+});
+document.getElementById('fiscal-ativ-dropdown').addEventListener('change', e=>{
+  const chk=e.target.closest('input[data-fa-val]');
+  if(!chk)return;
+  const val=chk.dataset.faVal;
+  if(!colFilters['atividade'])colFilters['atividade']=[];
+  if(chk.checked){ if(!colFilters['atividade'].includes(val))colFilters['atividade'].push(val); }
+  else colFilters['atividade']=colFilters['atividade'].filter(v=>v!==val);
+  state.page=1;renderAll();
+  updateFiscalAtivBtnState();
+});
+document.getElementById('fiscal-ativ-dropdown').addEventListener('click', e=>{
+  const allBtn=e.target.closest('[data-fa-all]');
+  if(allBtn){
+    colFilters['atividade']=getColFilterValues('atividade').slice();
+    state.page=1;renderAll();renderFiscalAtivDropdown();updateFiscalAtivBtnState();
+    return;
+  }
+  const noneBtn=e.target.closest('[data-fa-none]');
+  if(noneBtn){
+    colFilters['atividade']=[];
+    state.page=1;renderAll();renderFiscalAtivDropdown();updateFiscalAtivBtnState();
+    return;
+  }
+});
+document.addEventListener('click', e=>{
+  const dd=document.getElementById('fiscal-ativ-dropdown');
+  if(dd && dd.style.display!=='none' && !e.target.closest('#fiscal-ativ-dropdown') && !e.target.closest('#btn-fiscal-ativ')){
+    dd.style.display='none';
+  }
+});
 function onFilterChange(){
   state.filters.search=document.getElementById('f-search').value.trim().toLowerCase();
   state.filters.dep=document.getElementById('f-dep').value;
@@ -1708,14 +1770,16 @@ function getFilteredRows(){
     if(f.periodo&&r.periodo!==f.periodo) return false;
     if(f.resp&&![r.elab_resp,r.rev_resp,r.post_resp,r.revisor].some(v=>norm(v)===norm(f.resp)))return false;
 
-    // Column header filters
+    // Column header filters (multi-select)
     for(const [key,val] of Object.entries(colFilters)){
-      if(!val) continue;
+      if(!val||!val.length) continue;
       const colDef=COLUMNS.find(c=>c.key===key);
-      if(key.endsWith('_status')){if(effectiveStatus(r,key)!==val)return false;}
-      else if(key==='periodo'){if(fmtMonthYear(r[key])!==val)return false;}
-      else if(colDef&&colDef.type==='date'){if((isISO(r[key])?fmtDateBR(r[key]):(r[key]||''))!==val)return false;}
-      else if((r[key]??'')!==val) return false;
+      let cellVal;
+      if(key.endsWith('_status')) cellVal=effectiveStatus(r,key);
+      else if(key==='periodo') cellVal=fmtMonthYear(r[key]);
+      else if(colDef&&colDef.type==='date') cellVal=(isISO(r[key])?fmtDateBR(r[key]):(r[key]||''));
+      else cellVal=(r[key]??'');
+      if(!val.includes(cellVal)) return false;
     }
     return true;
   });
@@ -1727,12 +1791,23 @@ function getFilteredRows(){
 function renderStats(){
   const rows=getFilteredRows();
   const count=st=>rows.filter(r=>STATUS_FIELDS.map(k=>effectiveStatus(r,k)).includes(st)).length;
+  const cur=state.filters.status||'';
+  const act=v=>cur===v?' active':'';
   document.getElementById('stats-bar').innerHTML=`
-    <div class="stat-card total"><div class="num">${rows.length}</div><div class="lbl">Atividades</div></div>
-    <div class="stat-card atraso"><div class="num">${count('EM ATRASO')}</div><div class="lbl">Em atraso</div></div>
-    <div class="stat-card noprazo"><div class="num">${count('NO PRAZO')}</div><div class="lbl">No prazo</div></div>
-    <div class="stat-card feito"><div class="num">${count('FEITO')}</div><div class="lbl">Feito</div></div>`;
+    <div class="stat-card total${act('')}" data-statfilter=""><div class="num">${rows.length}</div><div class="lbl">Atividades</div></div>
+    <div class="stat-card atraso${act('EM ATRASO')}" data-statfilter="EM ATRASO"><div class="num">${count('EM ATRASO')}</div><div class="lbl">Em atraso</div></div>
+    <div class="stat-card noprazo${act('NO PRAZO')}" data-statfilter="NO PRAZO"><div class="num">${count('NO PRAZO')}</div><div class="lbl">No prazo</div></div>
+    <div class="stat-card feito${act('FEITO')}" data-statfilter="FEITO"><div class="num">${count('FEITO')}</div><div class="lbl">Feito</div></div>`;
+  updateFiscalAtivBtnState();
 }
+document.getElementById('stats-bar').addEventListener('click',e=>{
+  const card=e.target.closest('.stat-card[data-statfilter]');
+  if(!card)return;
+  const val=card.dataset.statfilter;
+  state.filters.status=(state.filters.status===val)?'':val;
+  document.getElementById('f-status').value=state.filters.status;
+  state.page=1;renderAll();
+});
 
 /* =========================================================
    TABELA FISCAL
@@ -1852,7 +1927,7 @@ function renderTableHead(isAdmin){
   if(isAdmin)gCells.push('<th></th>');
   const hCells=cols.map(c=>{
     const hasFilter=FILTERABLE_COLS.has(c.key);
-    const activeFilter=colFilters[c.key];
+    const activeFilter=colFilters[c.key]&&colFilters[c.key].length;
     const w=colWidth(c.key);
     const filterBtn=hasFilter?`<span class="col-filter-wrap"><button type="button" class="col-filter-btn ${activeFilter?'active':''}" data-colfilterkey="${c.key}">▼</button><div class="col-filter-dropdown" id="cfd-${c.key}"></div></span>`:'';
     return`<th class="${c.cls||''} ${groupColClass(c.group)}" style="position:relative;width:${w}px;min-width:${w}px;max-width:${w}px;" data-colkey="${c.key}"><span class="th-label">${c.label||'—'}</span>${filterBtn}</th>`;
@@ -2092,8 +2167,26 @@ document.getElementById('table-wrap').addEventListener('click',e=>{
   });
 })();
 
-/* ---- Filtros de coluna — dropdown ---- */
+/* ---- Filtros de coluna — dropdown (multi-seleção) ---- */
 (function(){
+  function openDropdown(key){
+    const btn=document.querySelector(`.col-filter-btn[data-colfilterkey="${key}"]`);
+    const dd=document.getElementById('cfd-'+key);
+    if(!btn||!dd)return;
+    const vals=getColFilterValues(key);
+    const cur=colFilters[key]||[];
+    let html=`<div class="col-filter-actions"><span data-cfall="${key}">Marcar todos</span><span data-cfnone="${key}">Limpar</span></div>`;
+    vals.forEach(v=>{
+      const escv=String(v).replace(/"/g,'&quot;');
+      const checked=cur.includes(v)?'checked':'';
+      html+=`<label class="col-filter-item"><input type="checkbox" data-cfk="${key}" data-cfv="${escv}" ${checked}><span>${v||'—'}</span></label>`;
+    });
+    dd.innerHTML=html;
+    const rect=btn.getBoundingClientRect();
+    dd.style.top=(rect.bottom+4)+'px';
+    dd.style.left=Math.max(4,rect.left-20)+'px';
+    dd.classList.add('open');
+  }
   // Abrir dropdown
   document.getElementById('table-wrap').addEventListener('click',e=>{
     const btn=e.target.closest('.col-filter-btn');
@@ -2105,26 +2198,41 @@ document.getElementById('table-wrap').addEventListener('click',e=>{
     const isOpen=dd.classList.contains('open');
     document.querySelectorAll('.col-filter-dropdown.open').forEach(d=>d.classList.remove('open'));
     if(isOpen)return;
-    const vals=getColFilterValues(key);
-    const cur=colFilters[key]||'';
-    let html=`<div class="col-filter-item all-item ${cur===''?'selected':''}" data-cfk="${key}" data-cfv="">(Todos)</div>`;
-    vals.forEach(v=>{html+=`<div class="col-filter-item ${cur===v?'selected':''}" data-cfk="${key}" data-cfv="${v.replace(/"/g,'&quot;')}">${v||'—'}</div>`;});
-    dd.innerHTML=html;
-    const rect=btn.getBoundingClientRect();
-    dd.style.top=(rect.bottom+4)+'px';
-    dd.style.left=Math.max(4,rect.left-20)+'px';
-    dd.classList.add('open');
+    openDropdown(key);
   },true);
-  // Selecionar item
+  // Marcar/desmarcar item
+  document.addEventListener('change',e=>{
+    const chk=e.target.closest('.col-filter-dropdown input[data-cfk]');
+    if(!chk)return;
+    const key=chk.dataset.cfk,val=chk.dataset.cfv;
+    if(!colFilters[key])colFilters[key]=[];
+    if(chk.checked){ if(!colFilters[key].includes(val))colFilters[key].push(val); }
+    else colFilters[key]=colFilters[key].filter(v=>v!==val);
+    state.page=1;renderAll();
+    openDropdown(key);
+  });
+  // Marcar todos / Limpar
   document.addEventListener('click',e=>{
-    const item=e.target.closest('.col-filter-item');
-    if(item){
-      colFilters[item.dataset.cfk]=item.dataset.cfv;
-      document.querySelectorAll('.col-filter-dropdown.open').forEach(d=>d.classList.remove('open'));
+    const allEl=e.target.closest('[data-cfall]');
+    if(allEl){
+      e.stopPropagation();
+      const key=allEl.dataset.cfall;
+      colFilters[key]=getColFilterValues(key).slice();
       state.page=1;renderAll();
+      openDropdown(key);
       return;
     }
-    // Fechar ao clicar fora
+    const noneEl=e.target.closest('[data-cfnone]');
+    if(noneEl){
+      e.stopPropagation();
+      const key=noneEl.dataset.cfnone;
+      colFilters[key]=[];
+      state.page=1;renderAll();
+      openDropdown(key);
+      return;
+    }
+    // Fechar ao clicar fora do dropdown
+    if(e.target.closest('.col-filter-dropdown'))return;
     document.querySelectorAll('.col-filter-dropdown.open').forEach(d=>d.classList.remove('open'));
   });
 })();
@@ -2178,11 +2286,11 @@ function openDetailModal(row){
   document.getElementById('detail-body').innerHTML=`
     <div class="dm-grid">
       ${fld('empresa','Empresa','text',null,true,true)}
-      ${fld('atividade','Atividade','text',null,true,true)}
+      ${fld('atividade','Atividade','text',null,true,false)}
       ${fld('rt','RT')} ${fld('es','Estado')} ${fld('cidade','Cidade')} ${fld('ativ','ATIV')}
-      ${fld('dep','Departamento','select',['','FISCAL','FOPAG','CONT','SOC','FINANC','PF'],false,true)}
+      ${fld('dep','Departamento','select',['','FISCAL','FOPAG','CONT','SOC','FINANC','PF'],false,false)}
       ${fld('periodo','Período','month',null,false,true)}
-      ${fld('flag','Flag','select',['F','V'],false,true)}
+      ${fld('flag','Flag','select',['F','V'],false,false)}
       ${fld('obs','Observações','text',null,true,false)}
       ${fld('tempo','Tempo gasto','text',null,false,false)}
     </div>
@@ -2191,7 +2299,7 @@ function openDetailModal(row){
         <div class="dm-stage-title">📋 Elaboração</div>
         <div class="dm-stage-grid" style="grid-template-columns:1fr 1fr 1fr 1fr;">
           ${fld('elab_prazo','Data','date',null,false,false)}
-          ${fld('elab_resp','Responsável','text',null,false,true)}
+          ${fld('elab_resp','Responsável','text',null,false,false)}
           ${fld('elab_status','Status','status')}
           ${fld('elab_sub','ELAB.','fillstatus')}
         </div>
@@ -2200,7 +2308,7 @@ function openDetailModal(row){
         <div class="dm-stage-title">🔍 Revisão</div>
         <div class="dm-stage-grid" style="grid-template-columns:1fr 1fr 1fr 1fr;">
           ${fld('rev_data','Data','date',null,false,false)}
-          ${fld('rev_resp','Responsável','text',null,false,true)}
+          ${fld('rev_resp','Responsável','text',null,false,false)}
           ${fld('rev_status','Status','status')}
           ${fld('rev_sub','REV.','fillstatus')}
         </div>
@@ -2209,7 +2317,7 @@ function openDetailModal(row){
         <div class="dm-stage-title">📤 Postagem</div>
         <div class="dm-stage-grid" style="grid-template-columns:1fr 1fr 1fr 1fr;">
           ${fld('post_data','Data','date',null,false,false)}
-          ${fld('post_resp','Responsável','text',null,false,true)}
+          ${fld('post_resp','Responsável','text',null,false,false)}
           ${fld('post_status','Status','status')}
           ${fld('post_data2','POST.','fillstatus')}
         </div>
@@ -2218,7 +2326,7 @@ function openDetailModal(row){
         <div class="dm-stage-title">✅ Conferência</div>
         <div class="dm-stage-grid" style="grid-template-columns:1fr 1fr 1fr 1fr;">
           ${fld('conf_data','Data','date',null,false,false)}
-          ${fld('revisor','Revisor','text',null,false,true)}
+          ${fld('revisor','Revisor','text',null,false,false)}
           ${fld('conf_status','Status','status')}
           ${fld('fe','CONF','fillstatus')}
         </div>
@@ -2365,8 +2473,8 @@ function contGetFiltered(){
     if(f.trib&&r.trib!==f.trib)return false;
     if(f.resp&&![(r.resp||''),(r.revisao||'')].some(v=>v.toUpperCase()===f.resp.toUpperCase()))return false;
     for(const [key,val] of Object.entries(contColFilters)){
-      if(!val)continue;
-      if((r[key]??'')!==val)return false;
+      if(!val||!val.length)continue;
+      if(!val.includes(r[key]??''))return false;
     }
     return true;
   });
@@ -2398,15 +2506,19 @@ function contRenderTable(){
   // Render compact table — click row to open full editor
   // Helper: filter button for cont columns
   const cFBtn=(key,label)=>{
-    const active=contColFilters[key];
+    const cur=contColFilters[key]||[];
+    const active=cur.length>0;
     const vals=Array.from(new Set(contState.data.map(r=>(r[key]||'')).filter(Boolean))).sort();
-    const opts=`<div class="col-filter-item all-item" data-cck="${key}" data-ccv="">(Todos)</div>`+vals.map(v=>`<div class="col-filter-item${contColFilters[key]===v?' selected':''}" data-cck="${key}" data-ccv="${v.replace(/"/g,'&quot;')}">${v}</div>`).join('');
+    const opts=`<div class="col-filter-actions"><span data-ccall="${key}">Marcar todos</span><span data-ccnone="${key}">Limpar</span></div>`+
+      vals.map(v=>`<label class="col-filter-item"><input type="checkbox" data-cck="${key}" data-ccv="${v.replace(/"/g,'&quot;')}" ${cur.includes(v)?'checked':''}><span>${v}</span></label>`).join('');
     return`<th class="cont-empresa" data-ccolkey="${key}" style="position:relative;text-align:left;">${label}${active?` <span style="color:var(--accent);font-size:9px;">▼</span>`:' <span style="color:#bbb;font-size:9px;">▼</span>'}<div class="col-filter-dropdown" id="ccfd-${key}" style="text-align:left;">${opts}</div></th>`;
   };
   const cTh=(key,label,extra='')=>{
-    const active=contColFilters[key];
+    const cur=contColFilters[key]||[];
+    const active=cur.length>0;
     const vals=Array.from(new Set(contState.data.map(r=>(r[key]||'')).filter(Boolean))).sort();
-    const opts=`<div class="col-filter-item all-item" data-cck="${key}" data-ccv="">(Todos)</div>`+vals.map(v=>`<div class="col-filter-item${contColFilters[key]===v?' selected':''}" data-cck="${key}" data-ccv="${v.replace(/"/g,'&quot;')}">${v}</div>`).join('');
+    const opts=`<div class="col-filter-actions"><span data-ccall="${key}">Marcar todos</span><span data-ccnone="${key}">Limpar</span></div>`+
+      vals.map(v=>`<label class="col-filter-item"><input type="checkbox" data-cck="${key}" data-ccv="${v.replace(/"/g,'&quot;')}" ${cur.includes(v)?'checked':''}><span>${v}</span></label>`).join('');
     return`<th data-ccolkey="${key}" style="position:relative;${extra}">${label}${active?` <span style="color:var(--accent);font-size:9px;">▼</span>`:' <span style="color:#bbb;font-size:9px;">▼</span>'}<div class="col-filter-dropdown" id="ccfd-${key}">${opts}</div></th>`;
   };
 
@@ -2561,10 +2673,20 @@ document.getElementById('cont-wrap').addEventListener('change',e=>{
 });
 
 /* Filtros de coluna CONT */
+function openContColDropdown(key){
+  const th=document.querySelector(`#cont-wrap thead th[data-ccolkey="${key}"]`);
+  const dd=document.getElementById('ccfd-'+key);
+  if(!th||!dd)return;
+  const rect=th.getBoundingClientRect();
+  dd.style.position='fixed';
+  dd.style.top=(rect.bottom+4)+'px';
+  dd.style.left=Math.max(4,rect.left)+'px';
+  dd.classList.add('open');
+}
 document.getElementById('cont-wrap').addEventListener('click',e=>{
   // Clique no ▼ (th com data-ccolkey)
   const th=e.target.closest('thead th[data-ccolkey]');
-  if(th&&!e.target.closest('.col-filter-item')){
+  if(th&&!e.target.closest('.col-filter-item')&&!e.target.closest('.col-filter-actions')){
     e.stopPropagation();
     const key=th.dataset.ccolkey;
     const dd=document.getElementById('ccfd-'+key);
@@ -2572,22 +2694,39 @@ document.getElementById('cont-wrap').addEventListener('click',e=>{
     const isOpen=dd.classList.contains('open');
     document.querySelectorAll('.col-filter-dropdown.open').forEach(d=>d.classList.remove('open'));
     if(isOpen)return;
-    const rect=th.getBoundingClientRect();
-    dd.style.position='fixed';
-    dd.style.top=(rect.bottom+4)+'px';
-    dd.style.left=Math.max(4,rect.left)+'px';
-    dd.classList.add('open');
+    openContColDropdown(key);
     return;
   }
-  // Clique num item do dropdown
-  const item=e.target.closest('.col-filter-item[data-cck]');
-  if(item){
-    contColFilters[item.dataset.cck]=item.dataset.ccv;
-    document.querySelectorAll('.col-filter-dropdown.open').forEach(d=>d.classList.remove('open'));
+  // Marcar todos / Limpar
+  const allEl=e.target.closest('[data-ccall]');
+  if(allEl){
+    e.stopPropagation();
+    const key=allEl.dataset.ccall;
+    contColFilters[key]=Array.from(new Set(contState.data.map(r=>(r[key]||'')).filter(Boolean)));
     contState.page=1;contRenderAll();
+    openContColDropdown(key);
+    return;
+  }
+  const noneEl=e.target.closest('[data-ccnone]');
+  if(noneEl){
+    e.stopPropagation();
+    const key=noneEl.dataset.ccnone;
+    contColFilters[key]=[];
+    contState.page=1;contRenderAll();
+    openContColDropdown(key);
     return;
   }
 },true);
+document.getElementById('cont-wrap').addEventListener('change',e=>{
+  const chk=e.target.closest('.col-filter-dropdown input[data-cck]');
+  if(!chk)return;
+  const key=chk.dataset.cck,val=chk.dataset.ccv;
+  if(!contColFilters[key])contColFilters[key]=[];
+  if(chk.checked){ if(!contColFilters[key].includes(val))contColFilters[key].push(val); }
+  else contColFilters[key]=contColFilters[key].filter(v=>v!==val);
+  contState.page=1;contRenderAll();
+  openContColDropdown(key);
+});
 
 /* Filtros CONT */
 ['cont-search','cont-grupo','cont-freq','cont-trib','cont-resp'].forEach(id=>{
@@ -4873,14 +5012,14 @@ tryRestoreSession();
       if(respFil && !norm(r.responsavel||'').startsWith(respFil) && !respFil.startsWith(norm(r.responsavel||''))) return false;
       // Filtros de coluna
       for(const [key,val] of Object.entries(reciboColFilters)){
-        if(!val) continue;
+        if(!val||!val.length) continue;
         let cell='';
         if(key==='status'){
           cell=r.status==='ok'?'✅ OK':r.status==='n/a'?'— N/A':r.pdf_data?'📎 Anexado':'⏳ Pendente';
         } else {
           cell=String(r[key]||'').trim();
         }
-        if(cell!==val) return false;
+        if(!val.includes(cell)) return false;
       }
       return true;
     });
@@ -4894,12 +5033,13 @@ tryRestoreSession();
       const TH='position:sticky;top:0;background:#F0F3F7;color:#1a2340;font-weight:700;border-bottom:1px solid #e0e6f0;border-right:1px solid #e0e6f0;padding:6px 10px;white-space:nowrap;z-index:2;font-size:12px;user-select:none;';
       function mkTh(key,label,minW,noFilter){
         const vals=colVals(key);
-        const active=reciboColFilters[key];
+        const cur=reciboColFilters[key]||[];
+        const active=cur.length>0;
         const filterHtml=noFilter?'':
           `<span class="col-filter-wrap"><button type="button" class="col-filter-btn${active?' active':''}" data-rcfk="${key}">▼</button>`+
           `<div class="col-filter-dropdown" id="rcfd-${key}">`+
-          `<div class="col-filter-item all-item" data-rck="${key}" data-rcv="">(Todos)</div>`+
-          vals.map(v=>`<div class="col-filter-item${active===v?' selected':''}" data-rck="${key}" data-rcv="${v.replace(/"/g,'&quot;')}">${v}</div>`).join('')+
+          `<div class="col-filter-actions"><span data-rcall="${key}">Marcar todos</span><span data-rcnone="${key}">Limpar</span></div>`+
+          vals.map(v=>`<label class="col-filter-item"><input type="checkbox" data-rck="${key}" data-rcv="${v.replace(/"/g,'&quot;')}" ${cur.includes(v)?'checked':''}><span>${v}</span></label>`).join('')+
           `</div></span>`;
         return `<th data-rcolkey="${key}" style="${TH}min-width:${minW};position:relative;">${label}${filterHtml}</th>`;
       }
@@ -4914,12 +5054,13 @@ tryRestoreSession();
 
     function mkTh(key,label,minW,noFilter){
       const vals=colVals(key);
-      const active=reciboColFilters[key];
+      const cur=reciboColFilters[key]||[];
+      const active=cur.length>0;
       const filterHtml=noFilter?'':
         `<span class="col-filter-wrap"><button type="button" class="col-filter-btn${active?' active':''}" data-rcfk="${key}">▼</button>`+
         `<div class="col-filter-dropdown" id="rcfd-${key}">`+
-        `<div class="col-filter-item all-item" data-rck="${key}" data-rcv="">(Todos)</div>`+
-        vals.map(v=>`<div class="col-filter-item${active===v?' selected':''}" data-rck="${key}" data-rcv="${v.replace(/"/g,'&quot;')}">${v}</div>`).join('')+
+        `<div class="col-filter-actions"><span data-rcall="${key}">Marcar todos</span><span data-rcnone="${key}">Limpar</span></div>`+
+        vals.map(v=>`<label class="col-filter-item"><input type="checkbox" data-rck="${key}" data-rcv="${v.replace(/"/g,'&quot;')}" ${cur.includes(v)?'checked':''}><span>${v}</span></label>`).join('')+
         `</div></span>`;
       return `<th data-rcolkey="${key}" style="${TH}min-width:${minW};position:relative;">${label}${filterHtml}</th>`;
     }
@@ -5121,33 +5262,62 @@ tryRestoreSession();
   initResize('mod-time','time-wrap','data-tcolkey');
 
   /* ── FILTROS DE COLUNA — cliques no recibo-wrap ──────── */
+  function openReciboColDropdown(btn){
+    const dd=btn.nextElementSibling;
+    if(!dd) return;
+    const rect=btn.getBoundingClientRect();
+    dd.style.position='fixed';
+    dd.style.top=(rect.bottom+4)+'px';
+    dd.style.left=Math.max(4,rect.left)+'px';
+    dd.classList.add('open');
+  }
   document.getElementById('recibo-wrap').addEventListener('click', function(e){
     // Abrir/fechar dropdown
     const btn=e.target.closest('.col-filter-btn[data-rcfk]');
-    if(btn && !e.target.closest('.col-filter-item')){
+    if(btn && !e.target.closest('.col-filter-item') && !e.target.closest('.col-filter-actions')){
       e.stopPropagation();
       const dd=btn.nextElementSibling;
       if(!dd) return;
       const isOpen=dd.classList.contains('open');
       document.querySelectorAll('.col-filter-dropdown.open').forEach(d=>d.classList.remove('open'));
-      if(!isOpen){
-        const rect=btn.getBoundingClientRect();
-        dd.style.position='fixed';
-        dd.style.top=(rect.bottom+4)+'px';
-        dd.style.left=Math.max(4,rect.left)+'px';
-        dd.classList.add('open');
-      }
+      if(!isOpen) openReciboColDropdown(btn);
       return;
     }
-    // Selecionar item
-    const item=e.target.closest('.col-filter-item[data-rck]');
-    if(item){
-      reciboColFilters[item.dataset.rck]=item.dataset.rcv;
-      document.querySelectorAll('.col-filter-dropdown.open').forEach(d=>d.classList.remove('open'));
+    // Marcar todos / Limpar
+    const allEl=e.target.closest('[data-rcall]');
+    if(allEl){
+      e.stopPropagation();
+      const key=allEl.dataset.rcall;
+      const dd=allEl.closest('.col-filter-dropdown');
+      const allVals=dd?Array.from(dd.querySelectorAll('input[data-rck]')).map(i=>i.dataset.rcv):[];
+      reciboColFilters[key]=allVals;
       reciboRenderAll();
+      const newBtn=document.querySelector(`.col-filter-btn[data-rcfk="${key}"]`);
+      if(newBtn) openReciboColDropdown(newBtn);
+      return;
+    }
+    const noneEl=e.target.closest('[data-rcnone]');
+    if(noneEl){
+      e.stopPropagation();
+      const key=noneEl.dataset.rcnone;
+      reciboColFilters[key]=[];
+      reciboRenderAll();
+      const newBtn=document.querySelector(`.col-filter-btn[data-rcfk="${key}"]`);
+      if(newBtn) openReciboColDropdown(newBtn);
       return;
     }
   }, true);
+  document.getElementById('recibo-wrap').addEventListener('change', function(e){
+    const chk=e.target.closest('.col-filter-dropdown input[data-rck]');
+    if(!chk) return;
+    const key=chk.dataset.rck,val=chk.dataset.rcv;
+    if(!reciboColFilters[key]) reciboColFilters[key]=[];
+    if(chk.checked){ if(!reciboColFilters[key].includes(val)) reciboColFilters[key].push(val); }
+    else reciboColFilters[key]=reciboColFilters[key].filter(v=>v!==val);
+    reciboRenderAll();
+    const newBtn=document.querySelector(`.col-filter-btn[data-rcfk="${key}"]`);
+    if(newBtn) openReciboColDropdown(newBtn);
+  });
   // Fechar dropdown ao clicar fora
   document.addEventListener('click', function(e){
     if(!e.target.closest('.col-filter-btn[data-rcfk]') && !e.target.closest('.col-filter-dropdown')){
