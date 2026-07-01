@@ -159,6 +159,21 @@ input,select,button{font-family:inherit;}
 
 /* ---- Table ---- */
 .table-wrap{margin:14px 20px;border:1px solid var(--border);border-radius:10px;overflow:auto;background:#fff;max-height:65vh;}
+/* Cores por grupo (ELABORAÇÃO/REVISÃO/DATA DE POSTAGEM/CONFERÊNCIA) na tabela do Cronograma Mensal */
+.col-grp-elab{background:#FFF3CD;}
+.col-grp-rev{background:#DCE6F1;}
+.col-grp-post{background:#FDE9D9;}
+.col-grp-conf{background:#E4DFF0;}
+tbody tr:hover td.col-grp-elab{background:#FBEAAF;}
+tbody tr:hover td.col-grp-rev{background:#C9DAEC;}
+tbody tr:hover td.col-grp-post{background:#F9D6B8;}
+tbody tr:hover td.col-grp-conf{background:#D6CCEB;}
+.col-grp-elab,.col-grp-rev,.col-grp-post,.col-grp-conf{border-right:1px solid rgba(0,0,0,.13);border-bottom:1px solid rgba(0,0,0,.13);}
+.group-row th.grp-elab-h,.group-row th.grp-rev-h,.group-row th.grp-post-h,.group-row th.grp-conf-h{border-right:1px solid rgba(255,255,255,.3);}
+.group-row th.grp-elab-h{background:#D9A404;color:#fff;}
+.group-row th.grp-rev-h{background:#2D6CDF;color:#fff;}
+.group-row th.grp-post-h{background:#C2570C;color:#fff;}
+.group-row th.grp-conf-h{background:#6D4AA3;color:#fff;}
 table{border-collapse:collapse;font-size:12.5px;width:auto;}
 #table-wrap table{table-layout:fixed;}
 thead th{position:sticky;top:0;background:#F0F3F7;color:var(--brand-dark);font-weight:700;border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:6px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:2;user-select:none;}
@@ -456,6 +471,11 @@ tr.row-expanded td{background:#F0F6FF!important;}
       <select id="f-periodo"><option value="">Período (todos)</option></select>
       <select id="f-resp" style="display:none;"><option value="">Responsável (todos)</option></select>
       <span class="clear" id="f-clear">limpar filtros</span>
+      <span style="position:relative;display:inline-block;">
+        <button type="button" id="btn-fiscal-cols" title="Escolher quais colunas exibir (preferência salva apenas neste navegador)" style="padding:6px 13px;background:#fff;color:#374151;border:1px solid var(--border);border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">👁 Colunas</button>
+        <div id="fiscal-cols-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);padding:8px 4px;z-index:500;min-width:220px;max-height:320px;overflow-y:auto;font-size:12.5px;"></div>
+      </span>
+      <button type="button" id="btn-fiscal-autofit" title="Ajustar a largura de cada coluna ao conteúdo (como no Excel)" style="padding:6px 13px;background:#fff;color:#374151;border:1px solid var(--border);border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">📏 Ajustar largura</button>
       <span class="spacer"></span>
       <select id="f-pagesize">
         <option value="25">25 / página</option>
@@ -668,6 +688,10 @@ tr.row-expanded td{background:#F0F6FF!important;}
       <button id="btn-recibo-add-row" title="Adicionar linha manualmente na aba ativa" style="padding:6px 13px;background:#2D6CDF;color:#fff;border:none;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">➕ Adicionar linha</button>
       <button id="btn-recibo-import-xlsx" title="Importar planilha de recibos (.xlsx)" style="padding:6px 13px;background:#fff;color:#2D6CDF;border:1px solid #2D6CDF;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">📥 Importar planilha</button>
       <input type="text" id="recibo-search" placeholder="Buscar empresa..." style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:220px;">
+      <span style="position:relative;display:inline-block;">
+        <button type="button" id="btn-recibo-cols" title="Escolher quais colunas exibir (preferência salva apenas neste navegador)" style="padding:6px 13px;background:#fff;color:#374151;border:1px solid var(--border);border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">👁 Colunas</button>
+        <div id="recibo-cols-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);padding:8px 4px;z-index:500;min-width:180px;font-size:12.5px;"></div>
+      </span>
     </div>
     <!-- Linha 2: filtros + anexar PDF -->
     <div style="display:flex;align-items:center;gap:6px;padding:7px 16px;border-bottom:2px solid var(--border);background:#f8f9fb;flex-wrap:wrap;">
@@ -1377,15 +1401,25 @@ function exportWorkbook(){
   // Linha de título
   ws['!rows']=[{hpt:22},{hpt:18},{hpt:18}];
   xlsRange(ws,0,0,0,NC-1,ST_TITLE);
+
+  // Paleta por grupo (cabeçalho mais saturado + tom pastel para o corpo/zebra)
+  const GROUP_COLS={
+    'ELABORAÇÃO':      {range:[9,12],  head:'D9A404', odd:'FFF2CC', even:'FFFBEF'}, // amarelo
+    'REVISÃO':         {range:[13,16], head:XLS_BLUE, odd:'DCE6F1', even:'EEF3FA'}, // azul
+    'DATA DE POSTAGEM':{range:[17,20], head:'C2570C', odd:'FDE9D9', even:'FFF4EC'}, // laranja
+    'CONFERÊNCIA':     {range:[21,24], head:'6D4AA3', odd:'E4DFF0', even:'F2EFF9'}, // violeta (harmoniza sem confundir com verde/vermelho de status)
+  };
+  const GROUP_BY_COL={};
+  Object.values(GROUP_COLS).forEach(g=>{for(let c=g.range[0];c<=g.range[1];c++)GROUP_BY_COL[c]=g;});
+
   xlsRange(ws,1,0,1,8,  xlsStyle({bold:true,sz:10,color:XLS_NAVY,bg:XLS_GRAY,align:'center',border:true}));
-  xlsRange(ws,1,9, 1,12, xlsStyle({bold:true,sz:10,color:XLS_WHITE,bg:XLS_NAVY,align:'center',border:true}));
-  xlsRange(ws,1,13,1,16, xlsStyle({bold:true,sz:10,color:XLS_WHITE,bg:XLS_BLUE,align:'center',border:true}));
-  xlsRange(ws,1,17,1,20, xlsStyle({bold:true,sz:10,color:XLS_WHITE,bg:XLS_TEAL,align:'center',border:true}));
-  xlsRange(ws,1,21,1,24, xlsStyle({bold:true,sz:10,color:XLS_WHITE,bg:'B45309',align:'center',border:true}));
+  Object.values(GROUP_COLS).forEach(g=>{
+    xlsRange(ws,1,g.range[0],1,g.range[1], xlsStyle({bold:true,sz:10,color:XLS_WHITE,bg:g.head,align:'center',border:true}));
+  });
   xlsRange(ws,1,25,1,NC-1,xlsStyle({bold:true,sz:10,color:XLS_NAVY,bg:XLS_GRAY,align:'center',border:true}));
   xlsRange(ws,2,0,2,NC-1,ST_HEAD);
 
-  // Dados — zebra
+  // Dados — zebra (tingida por grupo nas colunas de ELABORAÇÃO/REVISÃO/POSTAGEM/CONFERÊNCIA)
   for(let r=3;r<aoa.length;r++){
     const odd=(r%2===0);
     for(let ci=0;ci<NC;ci++){
@@ -1393,16 +1427,20 @@ function exportWorkbook(){
       const col=COLUMNS[ci];
       if(!ws[addr]) ws[addr]={t:'s',v:''};
       const isDate=col&&(col.type==='date'||col.type==='month');
+      const g=GROUP_BY_COL[ci];
+      const bg=g?(odd?g.odd:g.even):(odd?XLS_LGRAY:XLS_WHITE);
       if(!isDate){
         const isNum=typeof(ws[addr].v)==='number';
-        ws[addr].s=odd?(isNum?ST_ODD_R:ST_ODD):(isNum?ST_EVEN_R:ST_EVEN);
+        ws[addr].s=xlsStyle({sz:10,border:true,bg,align:isNum?'right':'left'});
+      } else {
+        ws[addr].s=xlsStyle({sz:10,border:true,bg,numFmt:'dd/mm/yyyy'});
       }
       // Status colors
       if(col&&col.type==='status'&&ws[addr].v){
         const v=String(ws[addr].v).toLowerCase();
-        if(v.includes('feito')||v==='ok') ws[addr].s=xlsStyle({bold:true,sz:10,color:XLS_GREEN,bg:odd?XLS_LGRAY:XLS_WHITE,border:true,align:'center'});
-        else if(v.includes('atraso')||v.includes('vencido')) ws[addr].s=xlsStyle({bold:true,sz:10,color:'DC2626',bg:odd?XLS_LGRAY:XLS_WHITE,border:true,align:'center'});
-        else if(v==='n/a')               ws[addr].s=xlsStyle({sz:10,color:'9CA3AF',bg:odd?XLS_LGRAY:XLS_WHITE,border:true,align:'center'});
+        if(v.includes('feito')||v==='ok') ws[addr].s=xlsStyle({bold:true,sz:10,color:XLS_GREEN,bg,border:true,align:'center'});
+        else if(v.includes('atraso')||v.includes('vencido')) ws[addr].s=xlsStyle({bold:true,sz:10,color:'DC2626',bg,border:true,align:'center'});
+        else if(v==='n/a')               ws[addr].s=xlsStyle({sz:10,color:'9CA3AF',bg,border:true,align:'center'});
       }
     }
   }
@@ -1566,7 +1604,7 @@ function enterApp(){
   document.getElementById('btn-users').style.display=isAdmin?'inline-block':'none';
   document.getElementById('btn-new-month').style.display=isAdmin?'inline-block':'none';
   document.getElementById('btn-del-month').style.display=isAdmin?'inline-block':'none';
-  document.getElementById('f-resp').style.display=isAdmin?'inline-block':'none';
+  document.getElementById('f-resp').style.display='inline-block';
   document.getElementById('btn-cont-import').style.display=isAdmin?'inline-block':'none';
   document.getElementById('btn-cont-reset').style.display=isAdmin?'inline-block':'none';
   document.getElementById('btn-relatorio-gerencial').style.display=isAdmin?'inline-block':'none';
@@ -1620,6 +1658,36 @@ document.getElementById('f-clear').addEventListener('click',()=>{
   ['f-search','f-dep','f-status','f-periodo','f-resp'].forEach(id=>document.getElementById(id).value='');
   state.page=1;renderTable();renderStats();
 });
+/* ── Dropdown ocultar/exibir colunas (Cronograma Mensal) ── */
+function renderFiscalColsDropdown(){
+  const dd=document.getElementById('fiscal-cols-dropdown');
+  dd.innerHTML=COLUMNS.map(c=>`
+    <label style="display:flex;align-items:center;gap:6px;padding:5px 8px;cursor:pointer;border-radius:5px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''">
+      <input type="checkbox" data-fiscal-col="${c.key}" ${hiddenCols.has(c.key)?'':'checked'}>
+      <span>${esc(colDisplayName(c))}</span>
+    </label>`).join('');
+}
+document.getElementById('btn-fiscal-cols').addEventListener('click', e=>{
+  e.stopPropagation();
+  const dd=document.getElementById('fiscal-cols-dropdown');
+  const willOpen=dd.style.display==='none';
+  if(willOpen) renderFiscalColsDropdown();
+  dd.style.display=willOpen?'block':'none';
+});
+document.getElementById('fiscal-cols-dropdown').addEventListener('change', e=>{
+  const inp=e.target.closest('[data-fiscal-col]');
+  if(!inp) return;
+  const key=inp.dataset.fiscalCol;
+  if(inp.checked){ hiddenCols.delete(key); } else { hiddenCols.add(key); }
+  saveHiddenCols(hiddenCols);
+  renderTable();
+});
+document.addEventListener('click', e=>{
+  const dd=document.getElementById('fiscal-cols-dropdown');
+  if(dd && dd.style.display!=='none' && !e.target.closest('#fiscal-cols-dropdown') && !e.target.closest('#btn-fiscal-cols')){
+    dd.style.display='none';
+  }
+});
 function onFilterChange(){
   state.filters.search=document.getElementById('f-search').value.trim().toLowerCase();
   state.filters.dep=document.getElementById('f-dep').value;
@@ -1643,8 +1711,10 @@ function getFilteredRows(){
     // Column header filters
     for(const [key,val] of Object.entries(colFilters)){
       if(!val) continue;
+      const colDef=COLUMNS.find(c=>c.key===key);
       if(key.endsWith('_status')){if(effectiveStatus(r,key)!==val)return false;}
       else if(key==='periodo'){if(fmtMonthYear(r[key])!==val)return false;}
+      else if(colDef&&colDef.type==='date'){if((isISO(r[key])?fmtDateBR(r[key]):(r[key]||''))!==val)return false;}
       else if((r[key]??'')!==val) return false;
     }
     return true;
@@ -1693,7 +1763,7 @@ function cellHTML(row,col){
   }
   if(col.type==='month'){
     if(!editable)return`<span class="cell-readonly">${esc(fmtMonthYear(value))}</span>`;
-    return`<input type="month" class="cell-input" value="${isISO(value)?value.slice(0,7):''}" ${dataAttrs}>`;
+    return`<span class="cell-month-display" ${dataAttrs} title="Clique para alterar">${esc(fmtMonthYear(value)||'—')}</span><input type="month" class="cell-input cell-month-input" style="display:none;" value="${isISO(value)?value.slice(0,7):''}" ${dataAttrs}>`;
   }
   if(col.type==='date'){
     const disp=isISO(value)?fmtDateBR(value):(value||'');
@@ -1705,29 +1775,88 @@ function cellHTML(row,col){
     return`<input type="text" class="cell-input" value="${esc(value)}" title="${esc(value)}" placeholder="00:50" ${dataAttrs}>`;
   return`<input type="text" class="cell-input" value="${esc(value)}" title="${esc(value)}" ${dataAttrs}>`;
 }
-function colWidth(key){return state.colWidths[key]||COL_WIDTH_DEFAULTS[key]||90;}
-function renderColgroup(isAdmin){let h='<colgroup>';COLUMNS.forEach(c=>{h+=`<col style="width:${colWidth(c.key)}px">`;});if(isAdmin)h+=`<col style="width:${colWidth('__actions')}px">`;return h+'</colgroup>';}
+function colWidth(key){
+  const v=state.colWidths[key]||COL_WIDTH_DEFAULTS[key]||90;
+  return Math.max(30,Math.min(320,v));
+}
+/* ── Ajustar largura ao conteúdo (estilo "autofit" do Excel) ── */
+function autoFitColumns(){
+  const canvas=autoFitColumns._canvas||(autoFitColumns._canvas=document.createElement('canvas'));
+  const ctx=canvas.getContext('2d');
+  const FONT='12.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif';
+  const FONT_BOLD='700 12.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif';
+  function measure(text,font){ ctx.font=font; return ctx.measureText(String(text??'')).width; }
+  const rows=state.data;
+  const isAdmin=state.currentUser&&state.currentUser.role==='admin';
+  visibleColumns().forEach(col=>{
+    let max=measure(col.label||'',FONT_BOLD)+26;
+    if(FILTERABLE_COLS.has(col.key)) max+=18;
+    rows.forEach(row=>{
+      let w=0;
+      if(col.type==='status'){
+        w=measure(effectiveStatus(row,col.key),FONT_BOLD)+30;
+      } else if(col.type==='fillstatus'){
+        w=68;
+      } else if(col.type==='flag'){
+        w=38;
+      } else if(col.type==='select'){
+        w=measure(row[col.key]||'',FONT)+34;
+      } else if(col.type==='date'){
+        const disp=isISO(row[col.key])?fmtDateBR(row[col.key]):(row[col.key]||'');
+        w=measure(disp,FONT)+36;
+      } else if(col.type==='month'){
+        w=measure(fmtMonthYear(row[col.key])||'',FONT)+22;
+      } else {
+        const editable=col.adminOnly?isAdmin:true;
+        w=measure(row[col.key]||'',editable?FONT:FONT)+20;
+      }
+      if(w>max) max=w;
+    });
+    state.colWidths[col.key]=Math.max(34,Math.min(320,Math.ceil(max)));
+  });
+  saveCW();
+  renderTable();
+}
+document.getElementById('btn-fiscal-autofit').addEventListener('click', autoFitColumns);
+/* ── Ocultar colunas (estilo Excel) — preferência salva só neste navegador ── */
+const LS_HIDDEN_COLS='cronograma_hidden_cols_v1';
+function loadHiddenCols(){ try{ return new Set(JSON.parse(localStorage.getItem(LS_HIDDEN_COLS)||'[]')); }catch(e){ return new Set(); } }
+function saveHiddenCols(set){ try{ localStorage.setItem(LS_HIDDEN_COLS, JSON.stringify(Array.from(set))); }catch(e){} }
+let hiddenCols=loadHiddenCols();
+function visibleColumns(){ return COLUMNS.filter(c=>!hiddenCols.has(c.key)); }
+function colDisplayName(c){ return (c.group?c.group+' — ':'')+(c.label||c.key.toUpperCase()); }
+function renderColgroup(isAdmin){let h='<colgroup>';visibleColumns().forEach(c=>{h+=`<col style="width:${colWidth(c.key)}px">`;});if(isAdmin)h+=`<col style="width:${colWidth('__actions')}px">`;return h+'</colgroup>';}
 var colFilters={};
-const FILTERABLE_COLS=new Set(['dep','flag','elab_resp','rev_resp','post_resp','revisor','elab_status','rev_status','post_status','conf_status','periodo']);
+const FILTERABLE_COLS=new Set(COLUMNS.map(c=>c.key));
 function getColFilterValues(key){
+  const colDef=COLUMNS.find(c=>c.key===key);
   const all=state.data.map(r=>{
     if(key.endsWith('_status')) return effectiveStatus(r,key);
     let v=r[key]??'';
     if(key==='periodo'&&v) v=fmtMonthYear(v);
+    else if(colDef&&colDef.type==='date'&&isISO(v)) v=fmtDateBR(v);
     return v;
   }).filter(v=>v&&String(v).trim()!=='');
   return Array.from(new Set(all)).sort();
 }
+function groupColClass(group){
+  return group==='ELABORAÇÃO'?'col-grp-elab':group==='REVISÃO'?'col-grp-rev':group==='DATA DE POSTAGEM'?'col-grp-post':group==='CONFERÊNCIA'?'col-grp-conf':'';
+}
+function groupHeadClass(group){
+  return group==='ELABORAÇÃO'?'grp-elab-h':group==='REVISÃO'?'grp-rev-h':group==='DATA DE POSTAGEM'?'grp-post-h':group==='CONFERÊNCIA'?'grp-conf-h':'';
+}
 function renderTableHead(isAdmin){
+  const cols=visibleColumns();
   let gCells=[],i=0;
-  while(i<COLUMNS.length){const g=COLUMNS[i].group;let span=0;while(i+span<COLUMNS.length&&COLUMNS[i+span].group===g)span++;gCells.push(`<th colspan="${span}">${g||''}</th>`);i+=span;}
+  while(i<cols.length){const g=cols[i].group;let span=0;while(i+span<cols.length&&cols[i+span].group===g)span++;gCells.push(`<th colspan="${span}" class="${groupHeadClass(g)}">${g||''}</th>`);i+=span;}
   if(isAdmin)gCells.push('<th></th>');
-  const hCells=COLUMNS.map(c=>{
+  const hCells=cols.map(c=>{
     const hasFilter=FILTERABLE_COLS.has(c.key);
     const activeFilter=colFilters[c.key];
+    const w=colWidth(c.key);
     const filterBtn=hasFilter?`<span class="col-filter-wrap"><button type="button" class="col-filter-btn ${activeFilter?'active':''}" data-colfilterkey="${c.key}">▼</button><div class="col-filter-dropdown" id="cfd-${c.key}"></div></span>`:'';
-    return`<th class="${c.cls||''}" style="position:relative;" data-colkey="${c.key}"><span class="th-label">${c.label||'—'}</span>${filterBtn}</th>`;
-  }).join('')+(isAdmin?`<th class="col-actions"></th>`:'');
+    return`<th class="${c.cls||''} ${groupColClass(c.group)}" style="position:relative;width:${w}px;min-width:${w}px;max-width:${w}px;" data-colkey="${c.key}"><span class="th-label">${c.label||'—'}</span>${filterBtn}</th>`;
+  }).join('')+(isAdmin?`<th class="col-actions" style="width:${colWidth('__actions')}px;min-width:${colWidth('__actions')}px;"></th>`:'');
   return`<thead><tr class="group-row">${gCells.join('')}</tr><tr class="head-row">${hCells}</tr></thead>`;
 }
 function renderTable(){
@@ -1742,12 +1871,14 @@ function renderTable(){
   const start=(state.page-1)*state.pageSize;
   const pageRows=rows.slice(start,start+state.pageSize);
   const isAdmin=state.currentUser.role==='admin';
+  const cols=visibleColumns();
   let html='<table>'+renderColgroup(isAdmin)+renderTableHead(isAdmin)+'<tbody>';
   pageRows.forEach(row=>{
     html+=`<tr data-rowid="${row.id}">`;
-    COLUMNS.forEach(col=>{
+    cols.forEach(col=>{
+      const w=colWidth(col.key);
       // For the atividade column add expand toggle
-      html+=`<td class="${col.cls||''}">${cellHTML(row,col)}</td>`;
+      html+=`<td class="${col.cls||''} ${groupColClass(col.group)}" style="width:${w}px;min-width:${w}px;max-width:${w}px;">${cellHTML(row,col)}</td>`;
     });
     if(isAdmin)html+=`<td class="col-actions"><button class="del-btn" data-del="${row.id}" title="Remover">🗑</button></td>`;
     html+='</tr>';
@@ -1784,7 +1915,13 @@ document.getElementById('table-wrap').addEventListener('change',e=>{
   else {renderTable();renderStats();}
 });
 document.getElementById('table-wrap').addEventListener('blur',e=>{
-  const el=e.target;if(el.dataset.field!=='tempo')return;
+  const el=e.target;
+  if(el.classList&&el.classList.contains('cell-month-input')){
+    el.style.display='none';
+    const disp=el.previousElementSibling;
+    if(disp&&disp.classList.contains('cell-month-display')) disp.style.display='';
+  }
+  if(el.dataset.field!=='tempo')return;
   const id=el.dataset.id;if(!id)return;
   const row=state.data.find(r=>r.id===id);if(!row)return;
   const norm=normalizeTempo(el.value);
@@ -1793,6 +1930,18 @@ document.getElementById('table-wrap').addEventListener('blur',e=>{
   timeSyncFromFiscal(row);timeRefreshUI();
 },true);
 document.getElementById('table-wrap').addEventListener('click',e=>{
+  // Clique no PERIODO abreviado abre o seletor nativo de mês
+  const monthDisp=e.target.closest('.cell-month-display');
+  if(monthDisp){
+    const inp=monthDisp.nextElementSibling;
+    if(inp&&inp.classList.contains('cell-month-input')){
+      monthDisp.style.display='none';
+      inp.style.display='inline-block';
+      inp.focus();
+      if(inp.showPicker){ try{ inp.showPicker(); }catch(err){} }
+    }
+    return;
+  }
   // Status buttons & delete (fast path)
   const statusBtn=e.target.closest('.status-btn');
   if(statusBtn){
@@ -1821,7 +1970,7 @@ document.getElementById('table-wrap').addEventListener('click',e=>{
     state.colWidths[key]=nw;
     const tbl=document.querySelector('#table-wrap table');
     if(!tbl)return;
-    const idx=COLUMNS.findIndex(c=>c.key===key);
+    const idx=visibleColumns().findIndex(c=>c.key===key);
     const cols=tbl.querySelectorAll('colgroup col');
     if(cols[idx]){cols[idx].style.width=nw+'px';cols[idx].style.minWidth=nw+'px';}
     const th=tbl.querySelector(`thead th[data-colkey="${key}"]`);
@@ -4512,6 +4661,10 @@ tryRestoreSession();
   /* ── RESIZE COLUNAS ──────────────────────────────────── */
   function initResize(modId, wrapId, thAttr){
     const EDGE=6; let dragging=false,activeEl=null,startX=0,startW=0;
+    const STORE_KEY='colWidths_'+wrapId;
+    function loadWidths(){ try{ return JSON.parse(localStorage.getItem(STORE_KEY)||'{}'); }catch(e){ return {}; } }
+    function saveWidths(w){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(w)); }catch(e){} }
+    let widths=loadWidths();
     const line=document.createElement('div');
     line.style.cssText='position:fixed;top:0;bottom:0;width:2px;background:#2D6CDF;z-index:99999;display:none;pointer-events:none;';
     document.body.appendChild(line);
@@ -4536,6 +4689,25 @@ tryRestoreSession();
       if(ci>=0) wrap.querySelectorAll(`tbody tr td:nth-child(${ci+1})`).forEach(td=>{
         ['minWidth','width','maxWidth'].forEach(p=>td.style[p]=nw+'px');
       });
+      const key=th.getAttribute(thAttr);
+      if(key){ widths[key]=nw; saveWidths(widths); }
+    }
+    // Reaplica larguras salvas (localStorage, por navegador) sempre que a tabela é re-renderizada,
+    // já que innerHTML de thead/tbody descarta os estilos inline aplicados anteriormente.
+    function reapplyWidths(){
+      const wrap=getWrap(); if(!wrap) return;
+      const ths=Array.from(wrap.querySelectorAll(`thead th[${thAttr}]`));
+      ths.forEach(th=>{
+        const key=th.getAttribute(thAttr);
+        const nw=widths[key];
+        if(!nw) return;
+        const allThs=Array.from(wrap.querySelectorAll('thead th'));
+        const ci=allThs.indexOf(th);
+        ['minWidth','width','maxWidth'].forEach(p=>th.style[p]=nw+'px');
+        if(ci>=0) wrap.querySelectorAll(`tbody tr td:nth-child(${ci+1})`).forEach(td=>{
+          ['minWidth','width','maxWidth'].forEach(p=>td.style[p]=nw+'px');
+        });
+      });
     }
     const mod=document.getElementById(modId);
     if(!mod) return;
@@ -4553,10 +4725,79 @@ tryRestoreSession();
     function stop(){ if(!dragging) return; dragging=false; ov.style.display='none'; line.style.display='none'; const w=getWrap(); if(w) w.style.cursor=''; document.body.style.userSelect=''; activeEl=null; }
     ov.addEventListener('mouseup',stop);
     document.addEventListener('mouseup',stop);
+    const wrapEl=getWrap();
+    if(wrapEl){
+      const mo=new MutationObserver(()=>{ reapplyWidths(); });
+      mo.observe(wrapEl,{childList:true,subtree:true});
+      reapplyWidths();
+    }
   }
 
   /* ── FILTROS DE COLUNA (estado) ─────────────────────── */
   let reciboColFilters = {}; // { empresa:'XPTO', status:'ok', … }
+
+  /* ── VISIBILIDADE DE COLUNAS (por navegador — não sincroniza entre usuários) ── */
+  const RECIBO_COLS = [
+    {key:'empresa',     label:'Empresa'},
+    {key:'obrigacao',   label:'Obrigação'},
+    {key:'periodo',     label:'Período'},
+    {key:'responsavel', label:'Responsável'},
+    {key:'status',      label:'Status'},
+    {key:'recibo',      label:'Recibo'},
+    {key:'acoes',       label:'Ações'}
+  ];
+  const RECIBO_COLS_KEY='recibo_hidden_cols_v1';
+  function reciboGetHiddenCols(){
+    try{ return JSON.parse(localStorage.getItem(RECIBO_COLS_KEY)||'[]'); }catch(e){ return []; }
+  }
+  function reciboSetHiddenCols(arr){
+    try{ localStorage.setItem(RECIBO_COLS_KEY, JSON.stringify(arr)); }catch(e){}
+  }
+  function reciboApplyColVisibility(){
+    const wrap=document.getElementById('recibo-wrap'); if(!wrap) return;
+    const hidden=reciboGetHiddenCols();
+    const ths=Array.from(wrap.querySelectorAll('thead th[data-rcolkey]'));
+    ths.forEach((th,ci)=>{
+      const key=th.getAttribute('data-rcolkey');
+      const isHidden=hidden.includes(key);
+      th.style.display=isHidden?'none':'';
+      wrap.querySelectorAll(`tbody tr td:nth-child(${ci+1})`).forEach(td=>{
+        td.style.display=isHidden?'none':'';
+      });
+    });
+  }
+  function reciboRenderColsDropdown(){
+    const dd=document.getElementById('recibo-cols-dropdown');
+    const hidden=reciboGetHiddenCols();
+    dd.innerHTML=RECIBO_COLS.map(c=>`
+      <label style="display:flex;align-items:center;gap:6px;padding:5px 8px;cursor:pointer;border-radius:5px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''">
+        <input type="checkbox" data-recibo-col="${c.key}" ${hidden.includes(c.key)?'':'checked'}>
+        <span>${c.label}</span>
+      </label>`).join('');
+  }
+  document.getElementById('btn-recibo-cols').addEventListener('click', e=>{
+    e.stopPropagation();
+    const dd=document.getElementById('recibo-cols-dropdown');
+    const willOpen=dd.style.display==='none';
+    if(willOpen) reciboRenderColsDropdown();
+    dd.style.display=willOpen?'block':'none';
+  });
+  document.getElementById('recibo-cols-dropdown').addEventListener('change', e=>{
+    const inp=e.target.closest('[data-recibo-col]');
+    if(!inp) return;
+    let hidden=reciboGetHiddenCols();
+    const key=inp.dataset.reciboCol;
+    if(inp.checked){ hidden=hidden.filter(k=>k!==key); }
+    else if(!hidden.includes(key)){ hidden.push(key); }
+    reciboSetHiddenCols(hidden);
+    reciboApplyColVisibility();
+  });
+  document.addEventListener('click', e=>{
+    const dd=document.getElementById('recibo-cols-dropdown');
+    if(dd && dd.style.display!=='none' && !e.target.closest('#recibo-cols-dropdown') && !e.target.closest('#btn-recibo-cols')){
+      dd.style.display='none';
+    }
+  });
 
   /* ── RENDER PRINCIPAL ────────────────────────────────── */
   function reciboRenderAll(){
@@ -4664,7 +4905,7 @@ tryRestoreSession();
       }
       thead.innerHTML=`<tr>${mkTh('empresa','Empresa','160px')}${mkTh('obrigacao','Obrigação','130px')}${mkTh('periodo','Período','70px')}${mkTh('responsavel','Responsável','80px')}${mkTh('status','Status','100px')}<th data-rcolkey="recibo" style="${TH}min-width:160px;">Recibo</th><th data-rcolkey="acoes" style="${TH}min-width:80px;cursor:default;">Ações</th></tr>`;
       tbody.innerHTML='';
-      empty.style.display='block'; return;
+      empty.style.display='block'; reciboApplyColVisibility(); return;
     }
     empty.style.display='none';
 
@@ -4719,7 +4960,7 @@ tryRestoreSession();
         <td style="${TD}max-width:200px;">${reciboBadge}</td>
         <td style="${TD}white-space:nowrap;">
           <button data-attach="${i}" title="Anexar PDF" style="padding:3px 9px;font-size:11px;border:1px solid #2563eb;border-radius:5px;background:#fff;color:#2563eb;cursor:pointer;">📎</button>
-          ${r.status!=='ok'?`<button data-ok="${i}" title="Marcar OK" style="margin-left:4px;padding:3px 9px;font-size:11px;border:1px solid #059669;border-radius:5px;background:#fff;color:#059669;cursor:pointer;">✓</button>`:''}
+          ${r.status!=='ok'?`<button data-ok="${i}" title="Marcar OK" style="margin-left:4px;padding:3px 9px;font-size:11px;border:1px solid #059669;border-radius:5px;background:#fff;color:#059669;cursor:pointer;">✓</button>`:`<button data-unok="${i}" title="Voltar para pendente" style="margin-left:4px;padding:3px 9px;font-size:11px;border:1px solid #92400e;border-radius:5px;background:#fff;color:#92400e;cursor:pointer;">↩</button>`}
           ${r.pdf_data?`<button data-del="${i}" title="Remover PDF" style="margin-left:4px;padding:3px 9px;font-size:11px;border:1px solid #dc2626;border-radius:5px;background:#fff;color:#dc2626;cursor:pointer;">✕</button>`:''}
           ${r._manual?`<button data-del-row="${i}" title="Excluir linha" style="margin-left:4px;padding:3px 9px;font-size:11px;border:1px solid #9f1239;border-radius:5px;background:#fff;color:#9f1239;cursor:pointer;">🗑</button>`:''}
         </td>
@@ -4753,6 +4994,13 @@ tryRestoreSession();
         if(reg){ reg.status='ok'; reg.ok_auto=true; tentarOkFiscal(reg); rsSave(); reciboRenderAll(); }
       });
     });
+    tbody.querySelectorAll('[data-unok]').forEach(el=>{
+      el.addEventListener('click',()=>{
+        const r=registros[parseInt(el.dataset.unok)];
+        const reg=RS.abas[r._aba].find(x=>norm(x.empresa)===norm(r.empresa)&&norm(x.obrigacao||'')===norm(r.obrigacao||''));
+        if(reg){ reg.status='pendente'; reg.ok_auto=false; rsSave(); reciboRenderAll(); }
+      });
+    });
     tbody.querySelectorAll('[data-del]').forEach(el=>{
       el.addEventListener('click',()=>{
         if(!confirm('Remover PDF anexado?')) return;
@@ -4769,6 +5017,7 @@ tryRestoreSession();
         if(idx>=0){ RS.abas[r._aba].splice(idx,1); rsSave(); reciboRenderAll(); }
       });
     });
+    reciboApplyColVisibility();
   }
 
   /* ── INPUTS E LISTENERS ──────────────────────────────── */
