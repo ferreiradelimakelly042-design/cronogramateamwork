@@ -1273,7 +1273,7 @@ function mapRowFromArray(arr){
     let v=arr[i];
     if(c.type==='date'||c.type==='month') v=toISODate(v);
     if(c.type==='status'){const nv=norm(v);v=(nv==='FEITO')?'FEITO':(nv==='N/A')?'N/A':'';}
-    if(c.type==='fillstatus'){const nv=norm(v);v=(nv==='FEITO')?'FEITO':(nv==='N/A')?'N/A':'';}
+    if(c.type==='fillstatus'){const nv=norm(v);v=(nv==='FEITO')?'FEITO':(nv==='N/A')?'N/A':(nv==='PENDENTE')?'PENDENTE':'';}
     obj[c.key]=(v==null)?'':v;
   });
   return obj;
@@ -1871,9 +1871,9 @@ function cellHTML(row,col){
   }
   if(col.type==='fillstatus'){
     const raw=norm(value);
-    if(!editable)return`<span class="cell-readonly">${raw==='FEITO'?'Feito':raw==='N/A'?'N/A':''}</span>`;
-    const selCls=raw==='FEITO'?'st-feito':raw==='N/A'?'st-na':'st-empty';
-    return`<select class="cell-status-select ${selCls}" ${dataAttrs} title="FEITO ou N/A"><option value="" ${raw===''?'selected':''}>—</option><option value="FEITO" ${raw==='FEITO'?'selected':''}>Feito</option><option value="N/A" ${raw==='N/A'?'selected':''}>N/A</option></select>`;
+    if(!editable)return`<span class="cell-readonly">${raw==='FEITO'?'Feito':raw==='N/A'?'N/A':raw==='PENDENTE'?'Pendente':''}</span>`;
+    const selCls=raw==='FEITO'?'st-feito':raw==='N/A'?'st-na':raw==='PENDENTE'?'st-pend':'st-empty';
+    return`<select class="cell-status-select ${selCls}" ${dataAttrs} title="FEITO, N/A ou Pendente"><option value="" ${raw===''?'selected':''}>—</option><option value="FEITO" ${raw==='FEITO'?'selected':''}>Feito</option><option value="N/A" ${raw==='N/A'?'selected':''}>N/A</option><option value="PENDENTE" ${raw==='PENDENTE'?'selected':''}>Pendente</option></select>`;
   }
   if(col.type==='select'){
     if(!editable)return`<span class="cell-readonly">${esc(value)}</span>`;
@@ -2410,8 +2410,8 @@ function openDetailModal(row){
       const stEditable=canEditField(row,key,state.currentUser);
       const raw=norm(v);
       inp=stEditable
-        ?`<select class="dm-input" data-dmkey="${key}"><option value="" ${raw===''?'selected':''}>—</option><option value="FEITO" ${raw==='FEITO'?'selected':''}>Feito</option><option value="N/A" ${raw==='N/A'?'selected':''}>N/A</option></select>`
-        :`<span class="dm-input" style="background:var(--bg);cursor:default;">${raw==='FEITO'?'Feito':raw==='N/A'?'N/A':'—'}</span>`;
+        ?`<select class="dm-input" data-dmkey="${key}"><option value="" ${raw===''?'selected':''}>—</option><option value="FEITO" ${raw==='FEITO'?'selected':''}>Feito</option><option value="N/A" ${raw==='N/A'?'selected':''}>N/A</option><option value="PENDENTE" ${raw==='PENDENTE'?'selected':''}>Pendente</option></select>`
+        :`<span class="dm-input" style="background:var(--bg);cursor:default;">${raw==='FEITO'?'Feito':raw==='N/A'?'N/A':raw==='PENDENTE'?'Pendente':'—'}</span>`;
     } else {
       inp=editable
         ?`<input type="text" class="dm-input" data-dmkey="${key}" value="${esc(v)}">`
@@ -3302,7 +3302,7 @@ function timeRenderTable(){
       </td>
       <td><input class="time-inp" data-tid="${r.id}" data-tf="descricao" value="${esc(r.descricao||'')}" style="min-width:220px;"></td>
       <td><input class="time-inp" data-tid="${r.id}" data-tf="tempo" value="${esc(r.tempo||'')}" style="width:80px;" placeholder="00:50"></td>
-      <td><input type="date" class="time-inp" data-tid="${r.id}" data-tf="data" value="${r.data&&r.data.length===10?r.data:(r.data?r.data.slice(0,10):'')}" style="width:120px;"></td>
+      <td><input type="date" class="time-inp" data-tid="${r.id}" data-tf="data" value="${r.data&&r.data.length===10?r.data:(r.data?r.data.slice(0,10):'')}" min="${new Date().toISOString().slice(0,10)}" style="width:120px;"></td>
       <td style="text-align:center;">
         <span class="${r.srcType?'time-source-auto':'time-source-manual'}">${r.srcType?'Auto':'Manual'}</span>
       </td>
@@ -3341,6 +3341,10 @@ document.getElementById('time-tbody').addEventListener('blur',e=>{
 document.getElementById('time-tbody').addEventListener('change',e=>{
   const el=e.target;const id=el.dataset.tid,field=el.dataset.tf;if(!id||!field)return;
   const r=timeState.data.find(x=>x.id===id);if(!r)return;
+  if(field==='data'){
+    const todayStr=new Date().toISOString().slice(0,10);
+    if(el.value&&el.value<todayStr){alert('Não é possível lançar tempo em datas anteriores a hoje. Selecione a data de hoje ou uma data futura.');el.value=r.data||todayStr;return;}
+  }
   if(field==='tempo'){r[field]=normalizeTempo(el.value);}else{r[field]=el.value;}
   // If this is a linked row and tempo changed, update source
   if(field==='tempo'&&r.srcId&&r.srcType==='fiscal'){
@@ -3409,6 +3413,7 @@ document.getElementById('btn-time-add').addEventListener('click',()=>{
   document.getElementById('tm-desc').value='';
   document.getElementById('tm-tempo').value='';
   document.getElementById('tm-data').value=new Date().toISOString().slice(0,10);
+  document.getElementById('tm-data').min=new Date().toISOString().slice(0,10);
   openModal('modal-time-add');
 });
 document.getElementById('tm-tempo').addEventListener('blur',()=>{
@@ -3424,6 +3429,7 @@ document.getElementById('btn-time-save').addEventListener('click',()=>{
   const tempo=normalizeTempo(document.getElementById('tm-tempo').value.trim());
   const data=document.getElementById('tm-data').value;
   if(!empresa||!tempo){alert('Preencha ao menos Empresa e Tempo gasto.');return;}
+  {const todayStr=new Date().toISOString().slice(0,10);if(data&&data<todayStr){alert('Não é possível lançar tempo em datas anteriores a hoje. Selecione a data de hoje ou uma data futura.');return;}}
   const entry={id:__timeEditId||timeUid(),empresa,colaborador:colab,setor,descricao:desc,tempo,data,srcType:null,srcId:null,origem:'manual'};
   if(__timeEditId){const idx=timeState.data.findIndex(r=>r.id===__timeEditId);if(idx>=0)timeState.data[idx]=entry;}
   else timeState.data.push(entry);
