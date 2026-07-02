@@ -2084,67 +2084,134 @@ document.getElementById('table-wrap').addEventListener('click',e=>{
    (mesma coluna) seleciona o intervalo. Ctrl+C copia, Ctrl+V cola em
    todas as células selecionadas.
    ========================================================= */
-let cellClipboard=null;   // {field, value}
-let cellSelAnchorId=null; // id da linha onde a seleção começou
-let cellSelField=null;    // coluna selecionada
-let cellSelIds=[];        // ids selecionados, na ordem visível atual
+/* =========================================================
+   COPIAR / COLAR CÉLULAS (estilo Excel) — Cronograma Mensal
+   Clique numa célula para selecioná-la; clique e arraste (ou
+   Shift+clique) para selecionar um bloco retangular de linhas
+   e colunas. Ctrl+C copia, Ctrl+V cola — funciona também em
+   colunas com lista de seleção (ELAB./REV./POST./CONF., STATUS
+   de contabilidade, flag etc.), pois a colagem altera o dado
+   por trás da célula e a tabela é redesenhada.
+   ========================================================= */
+let cellClipboard=null;   // grid copiado: [[{field,value},...],...]
+let cellSelAnchor=null;   // {rowIdx,colIdx} onde a seleção começou
+let cellSelActive=null;   // {rowIdx,colIdx} canto oposto atual
+let cellSelDragging=false;
 
+function cellSelColFields(){ return visibleColumns().map(c=>c.key); }
+function cellSelRect(){
+  if(!cellSelAnchor||!cellSelActive)return null;
+  return {
+    r0:Math.min(cellSelAnchor.rowIdx,cellSelActive.rowIdx),
+    r1:Math.max(cellSelAnchor.rowIdx,cellSelActive.rowIdx),
+    c0:Math.min(cellSelAnchor.colIdx,cellSelActive.colIdx),
+    c1:Math.max(cellSelAnchor.colIdx,cellSelActive.colIdx)
+  };
+}
+function cellCoordsFromEl(el){
+  const field=el.dataset.field,id=el.dataset.id;
+  if(!field||!id)return null;
+  const rowIdx=getFilteredRows().findIndex(r=>r.id===id);
+  const colIdx=cellSelColFields().indexOf(field);
+  if(rowIdx<0||colIdx<0)return null;
+  return {rowIdx,colIdx};
+}
 function clearCellSelection(){
   document.querySelectorAll('#table-wrap .cell-selected').forEach(el=>el.classList.remove('cell-selected'));
-  cellSelIds=[];cellSelAnchorId=null;cellSelField=null;
+  cellSelAnchor=null;cellSelActive=null;cellSelDragging=false;
 }
-function markCellSelection(field,ids){
+function markCellSelection(){
   document.querySelectorAll('#table-wrap .cell-selected').forEach(el=>el.classList.remove('cell-selected'));
-  ids.forEach(id=>{
-    const el=document.querySelector(`#table-wrap [data-id="${id}"][data-field="${field}"]`);
-    const td=el&&el.closest('td');
-    if(td)td.classList.add('cell-selected');
-  });
+  const rect=cellSelRect();if(!rect)return;
+  const rows=getFilteredRows();
+  const fields=cellSelColFields();
+  for(let ri=rect.r0;ri<=rect.r1;ri++){
+    const row=rows[ri];if(!row)continue;
+    for(let ci=rect.c0;ci<=rect.c1;ci++){
+      const field=fields[ci];if(!field)continue;
+      const el=document.querySelector(`#table-wrap [data-id="${row.id}"][data-field="${field}"]`);
+      const td=el&&el.closest('td');
+      if(td)td.classList.add('cell-selected');
+    }
+  }
 }
-document.getElementById('table-wrap').addEventListener('click',e=>{
+document.getElementById('table-wrap').addEventListener('mousedown',e=>{
   const el=e.target.closest('[data-id][data-field]');
   if(!el)return;
-  const field=el.dataset.field,id=el.dataset.id;
-  if(e.shiftKey&&cellSelField===field&&cellSelAnchorId){
-    const rows=getFilteredRows();
-    const start=rows.findIndex(r=>r.id===cellSelAnchorId);
-    const end=rows.findIndex(r=>r.id===id);
-    if(start>-1&&end>-1){
-      const a=Math.min(start,end),b=Math.max(start,end);
-      cellSelIds=rows.slice(a,b+1).map(r=>r.id);
-      markCellSelection(field,cellSelIds);
-    }
-  } else {
-    cellSelField=field;cellSelAnchorId=id;cellSelIds=[id];
-    markCellSelection(field,cellSelIds);
+  const coords=cellCoordsFromEl(el);
+  if(!coords)return;
+  if(e.shiftKey&&cellSelAnchor){
+    cellSelActive=coords;
+    markCellSelection();
+    return;
   }
+  cellSelAnchor=coords;cellSelActive=coords;cellSelDragging=true;
+  markCellSelection();
 });
+document.getElementById('table-wrap').addEventListener('mouseover',e=>{
+  if(!cellSelDragging)return;
+  const el=e.target.closest('[data-id][data-field]');
+  if(!el)return;
+  const coords=cellCoordsFromEl(el);
+  if(!coords)return;
+  cellSelActive=coords;
+  markCellSelection();
+});
+document.addEventListener('mouseup',()=>{cellSelDragging=false;});
 document.addEventListener('keydown',e=>{
   const modFiscal=document.getElementById('mod-fiscal');
   if(!modFiscal||modFiscal.style.display==='none')return;
   const key=e.key.toLowerCase();
+  const rect=cellSelRect();
   if((e.ctrlKey||e.metaKey)&&key==='c'){
-    if(!cellSelField||!cellSelAnchorId)return;
-    const row=state.data.find(r=>r.id===cellSelAnchorId);
-    if(!row)return;
-    cellClipboard={field:cellSelField,value:row[cellSelField]};
+    if(!rect)return;
+    const rows=getFilteredRows();
+    const fields=cellSelColFields();
+    const grid=[];
+    for(let ri=rect.r0;ri<=rect.r1;ri++){
+      const row=rows[ri];const line=[];
+      for(let ci=rect.c0;ci<=rect.c1;ci++){
+        const field=fields[ci];
+        line.push({field,value:row?row[field]:''});
+      }
+      grid.push(line);
+    }
+    cellClipboard=grid;
     document.querySelectorAll('#table-wrap .cell-selected').forEach(td=>{
       td.classList.add('cell-copy-flash');
       setTimeout(()=>td.classList.remove('cell-copy-flash'),350);
     });
   }
   if((e.ctrlKey||e.metaKey)&&key==='v'){
-    if(!cellClipboard||!cellSelIds.length||cellSelField!==cellClipboard.field)return;
+    if(!cellClipboard||!rect)return;
     e.preventDefault();
+    const rows=getFilteredRows();
+    const fields=cellSelColFields();
+    const copyH=cellClipboard.length,copyW=cellClipboard[0]?cellClipboard[0].length:0;
+    if(!copyH||!copyW)return;
+    const selH=rect.r1-rect.r0+1,selW=rect.c1-rect.c0+1;
+    // Célula única copiada + várias selecionadas => espalha o valor por toda a seleção.
+    // Caso contrário, cola a partir do canto superior esquerdo, repetindo o bloco copiado.
+    const single=(copyH===1&&copyW===1);
+    const targetH=single?selH:copyH;
+    const targetW=single?selW:copyW;
     let changed=0;
-    cellSelIds.forEach(id=>{
-      const row=state.data.find(r=>r.id===id);
-      if(!row)return;
-      if(!canEditField(row,cellClipboard.field,state.currentUser))return;
-      row[cellClipboard.field]=cellClipboard.value;
-      changed++;
-    });
-    if(changed){saveData();renderTable();renderStats();}
+    for(let dr=0;dr<targetH;dr++){
+      const row=rows[rect.r0+dr];if(!row)continue;
+      for(let dc=0;dc<targetW;dc++){
+        const field=fields[rect.c0+dc];if(!field)continue;
+        const col=COLUMNS.find(c=>c.key===field);
+        if(!col||col.type==='status')continue; // STATUS é sempre calculado
+        if(!canEditField(row,field,state.currentUser))continue;
+        const src=cellClipboard[dr%copyH][dc%copyW];
+        row[field]=src.value;
+        changed++;
+      }
+    }
+    if(changed){
+      saveData();renderTable();renderStats();
+      markCellSelection();
+    }
   }
 });
 document.addEventListener('click',e=>{
